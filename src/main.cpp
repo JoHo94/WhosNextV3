@@ -55,6 +55,7 @@ int fileCount = 0;
 const int maxSize = 40;
 String fileNames[maxSize];
 
+int volume = 19;
 int settingsMenu = 0; // 0 = no settings, 1 = Lautstärke, 2 = Spieleranzahl
 int mode = 0;
 
@@ -64,6 +65,14 @@ void colorWipe(uint32_t color, int wait, int number = strip.numPixels()) {
     strip.show();                          //  Update strip to match
     delay(wait);                           //  Pause for a moment
   }
+}
+
+void colorSet(uint32_t color, int number = strip.numPixels()) {
+  strip.clear();
+  for(int i=0; i<number; i++) { // For each pixel in strip...
+    strip.setPixelColor(i, color);         //  Set pixel's color (in RAM)
+  }
+  strip.show();
 }
 
 void rainbow(int wait) {
@@ -169,18 +178,38 @@ float getVoltage(){
   return Vbattf;
 }
 
+void applyNewVolume(){
+    audio.setVolume(volume);
+    int ledCount = volume - 5;
+    colorSet(strip.Color(  255,   255, 255), ledCount);
+    Serial.print("Changed volume to: ");
+    Serial.println(volume);
+}
+
 // Handler function for a single click:
 static void handleSec1Click() {
-  Serial.println("Sec1 Clicked!");
+  Serial.println("Left Button Clicked!");
   if (settingsMenu == 1){
+    if (volume - 2 >= 5) { //Never smaller than 5
+        volume -= 2;
+    } else {
+        volume = 5; // Ensure it doesn't go below 0
+    }
+    applyNewVolume();
     audio.connecttoSD("/Settings/Leiser.mp3");
   }
 }
 
 // Handler function for a single click:
 static void handleSec2Click() {
-  Serial.println("Sec2 Clicked!");
+  Serial.println("Right Button Clicked!");
   if (settingsMenu == 1){
+    if (volume + 2 <= 21) { //Not greater than 21
+      volume += 2;
+    } else {
+      volume = 21; // Ensure it doesn't exceed 21
+    }
+    applyNewVolume();
     audio.connecttoSD("/Settings/Lauter.mp3");
   }
 }
@@ -190,11 +219,13 @@ static void handleMainButtonLongClick() {
   Serial.println("Main Longpress");
   if(settingsMenu == 0){
     settingsMenu = 1;
-    audio.connecttoSD("/Settings/Einstellungen.mp3");
+    audio.connecttoSD("/Settings/Lautstärke.mp3");
+    applyNewVolume();
     return;
   }
   if (settingsMenu == 1){
     settingsMenu = 0;
+    rainbow(0);
     return;
   }
   
@@ -244,7 +275,7 @@ void setup() {
   SD.begin(SD_CS);
 
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-  audio.setVolume(21); // 0...21
+  audio.setVolume(volume); // 0...21
 
   btnSec1.attachClick(handleSec1Click);
   btnSec2.attachClick(handleSec2Click);
