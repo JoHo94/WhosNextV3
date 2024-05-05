@@ -11,6 +11,8 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
+#include "RemoteDebug.h"  //https://github.com/JoaoLopesF/RemoteDebug
+
 #include "secrets.h"
 
 // Digital I/O used
@@ -30,6 +32,8 @@
 #define BUTTON_MAIN   D6
 #define BUTTON_SEC_1 D7
 #define Button_SEC_2 D0
+
+RemoteDebug Debug;
 
 OneButton btnSec1 = OneButton(
   BUTTON_SEC_1,  // Input pin for the button
@@ -110,7 +114,7 @@ void listFilesInSDCard(String fileNames[], int maxSize) {
 
     String fileName = entry.name();
     if (fileName.endsWith(".mp3")) {
-      Serial.println(fileName);
+      Debug.println(fileName);
     fileNames[fileCount] = fileName;
     fileCount++;
     }
@@ -138,19 +142,19 @@ void fillPlayOrderArray(int songCount) {
     playOrder[j] = tmp;
   }
 
-  Serial.println("Playorder:");
+  Debug.println("Playorder:");
   for(int i = 0; i < songCount; i++){
-    Serial.println(playOrder[i]);
+    Debug.println(playOrder[i]);
   }
 }
 
 void playSong(int index, int orderIndex = 0) {
-      Serial.print("Play Index ");
-      Serial.print(orderIndex);
-      Serial.print("-> ");
-      Serial.print(index);
-      Serial.print(" = ");
-      Serial.println(fileNames[index].c_str());
+      Debug.print("Play Index ");
+      Debug.print(orderIndex);
+      Debug.print("-> ");
+      Debug.print(index);
+      Debug.print(" = ");
+      Debug.println(fileNames[index].c_str());
       audio.connecttoSD(fileNames[index].c_str());
  }
 
@@ -189,13 +193,13 @@ void applyNewVolume(){
     audio.setVolume(volume);
     int ledCount = volume - 5;
     colorSet(strip.Color(  255,   255, 255), ledCount);
-    Serial.print("Changed volume to: ");
-    Serial.println(volume);
+    Debug.print("Changed volume to: ");
+    Debug.println(volume);
 }
 
 // Handler function for a single click:
 static void handleSec1Click() {
-  Serial.println("Left Button Clicked!");
+  Debug.println("Left Button Clicked!");
   if (settingsMenu == 1){
     if (volume - 2 >= 5) { //Never smaller than 5
         volume -= 2;
@@ -209,7 +213,7 @@ static void handleSec1Click() {
 
 // Handler function for a single click:
 static void handleSec2Click() {
-  Serial.println("Right Button Clicked!");
+  Debug.println("Right Button Clicked!");
   if (settingsMenu == 1){
     if (volume + 2 <= 21) { //Not greater than 21
       volume += 2;
@@ -223,7 +227,7 @@ static void handleSec2Click() {
 
 // Handler function for a single click:
 static void handleMainButtonLongClick() {
-  Serial.println("Main Longpress");
+  Debug.println("Main Longpress");
   if(settingsMenu == 0){
     settingsMenu = 1;
     audio.connecttoSD("/Settings/Lautstärke.mp3");
@@ -240,40 +244,40 @@ static void handleMainButtonLongClick() {
 
 // Handler function for a single click:
 static void handleMainButtonClick() {
-  Serial.println("MainButton Clicked!!");
-        if(currentSong < fileCount){
-        playSong(playOrder[currentSong], currentSong);
-        currentSong++;
-      } else {
-        fillPlayOrderArray(fileCount);
-        currentSong = 1;
-        playSong(playOrder[0], 0);
-      }
+  Debug.println("MainButton Clicked!!");
+  if(currentSong < fileCount){
+    playSong(playOrder[currentSong], currentSong);
+    currentSong++;
+  } else {
+    fillPlayOrderArray(fileCount);
+    currentSong = 1;
+    playSong(playOrder[0], 0);
+  }
 
-      if(++mode > 3) mode = 0; // Advance to next mode, wrap around after #8
-      switch(mode) {           // Start the new animation...
-        case 0:
-          colorWipe(strip.Color(  0,   165,   255, 10), 10);    // Orange
-          break;
-        case 1:
-          colorWipe(strip.Color(  0, 255,   0, 64), 10);    // Green
-          break;
-        case 2:
-          colorWipe(strip.Color(255,   0,   0, 64), 10);    // Red
-          break;
-        case 3:
-          colorWipe(strip.Color(  0,   0, 255, 64), 10);    // Blue
-          break;
-      }
+  if(++mode > 3) mode = 0; // Advance to next mode, wrap around after #8
+  switch(mode) {           // Start the new animation...
+    case 0:
+      colorWipe(strip.Color(  0,   165,   255, 10), 10);    // Orange
+      break;
+    case 1:
+      colorWipe(strip.Color(  0, 255,   0, 64), 10);    // Green
+      break;
+    case 2:
+      colorWipe(strip.Color(255,   0,   0, 64), 10);    // Red
+      break;
+    case 3:
+      colorWipe(strip.Color(  0,   0, 255, 64), 10);    // Blue
+      break;
+  }
 }
 
 void initWifiAndOta()
  {
-  Serial.println("Booting");
+  Debug.println("Booting");
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
      //while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    //   Serial.println("Connection Failed! Rebooting...");
+    //   Debug.println("Connection Failed! Rebooting...");
      //  delay(5000);
     //   ESP.restart();
      //}
@@ -301,34 +305,36 @@ void initWifiAndOta()
         type = "filesystem";
 
       // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-      Serial.println("Start updating " + type);
+      Debug.println("Start updating " + type);
     })
     .onEnd([]() {
-      Serial.println("\nEnd");
+      Debug.println("\nEnd");
     })
     .onProgress([](unsigned int progress, unsigned int total) {
-      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+      Debug.printf("Progress: %u%%\r", (progress / (total / 100)));
     })
     .onError([](ota_error_t error) {
-      Serial.printf("Error[%u]: ", error);
-      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+      Debug.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Debug.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Debug.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Debug.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Debug.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Debug.println("End Failed");
     });
 
     ArduinoOTA.begin();
 
-  Serial.println("Ready");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+  Debug.println("Ready");
+  Debug.print("IP address: ");
+  Debug.println(WiFi.localIP());
 }
 
 void setup() {
   
   initWifiAndOta();
 
+  Debug.begin("thebutton");
+  Debug.setResetCmdEnabled(true); // Enable the reset command
   pinMode(VOLTAGE_PIN, INPUT);
   int voltagePixelCount = convertToPixelCount(convertToPercentage(getVoltage()));
 
@@ -355,13 +361,13 @@ void setup() {
   // Print the file names
   for (int i = 0; i < maxSize; i++) {
     if (fileNames[i] != "") {
-      Serial.println(fileNames[i]);
+      Debug.println(fileNames[i]);
     } else {
       break;
     }
   }
-  Serial.print("Filecount:");
-  Serial.println(fileCount);
+  Debug.print("Filecount:");
+  Debug.println(fileCount);
   
   fillPlayOrderArray(fileCount);
 
@@ -372,15 +378,15 @@ void loop()
 {
   float voltage = getVoltage();
   int voltagePercent = convertToPercentage(voltage);
-  //Serial.print("Voltage: ");
-  //Serial.print(voltage);
-  //Serial.print(" -> ");
-  //Serial.print(voltagePercent);
-  //Serial.print(" -> ");
-  //Serial.println(convertToPixelCount(voltagePercent));
+  //Debug.print("Voltage: ");
+  //Debug.print(voltage);
+  //Debug.print(" -> ");
+  //Debug.print(voltagePercent);
+  //Debug.print(" -> ");
+  //Debug.println(convertToPixelCount(voltagePercent));
 
   if(voltagePercent < 5){
-    Serial.println("Battery empty!");
+    Debug.println("Battery empty!");
     strip.setBrightness(20);
     colorWipe(strip.Color(255,   255,   255, 255), 10, 1);    // Red
     esp_deep_sleep_start();
@@ -392,5 +398,6 @@ void loop()
   btnMain.tick();
   
   ArduinoOTA.handle();
+  Debug.handle();
 }
 
