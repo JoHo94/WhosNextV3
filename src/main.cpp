@@ -14,22 +14,22 @@
 #include "secrets.h"
 
 // Digital I/O used
-#define SD_CS         21 // 34 5
-#define SPI_MOSI      D10 // 36 23
-#define SPI_MISO      D9 // 38 19
-#define SPI_SCK       D8 // 35 18
-#define I2S_DOUT      A1 // 14
-#define I2S_BCLK      A2 //2 4
-#define I2S_LRC       A3 //15
+#define SD_CS         10 // 34 5
+#define SPI_MOSI      11 // 36 23
+#define SPI_MISO      13 // 38 19
+#define SPI_SCK       12 // 35 18
+#define I2S_DOUT      4 // 14
+#define I2S_BCLK      5 //2 4
+#define I2S_LRC       6 //15
 
-#define PIXEL_PIN    A5  // Digital IO pin connected to the NeoPixels.
+#define PIXEL_PIN    9  // Digital IO pin connected to the NeoPixels.
 #define PIXEL_COUNT 16  // Number of NeoPixels
 
-#define VOLTAGE_PIN A4
+#define VOLTAGE_PIN 3
 
-#define BUTTON_MAIN   D6
-#define BUTTON_SEC_1 D7
-#define Button_SEC_2 D0
+#define BUTTON_MAIN   18
+#define BUTTON_SEC_1 8
+#define Button_SEC_2 7
 
 OneButton btnSec1 = OneButton(
   BUTTON_SEC_1,  // Input pin for the button
