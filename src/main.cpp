@@ -11,7 +11,11 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
+#include <NimBLEDevice.h>
+
 #include "secrets.h"
+
+#include "BluetoothManager.h"
 
 // Digital I/O used
 #define SD_CS         10 // 34 5
@@ -30,6 +34,7 @@
 #define BUTTON_MAIN   18
 #define BUTTON_SEC_1 8
 #define Button_SEC_2 7
+
 
 OneButton btnSec1 = OneButton(
   BUTTON_SEC_1,  // Input pin for the button
@@ -51,6 +56,9 @@ OneButton btnMain = OneButton(
 
 
 Adafruit_NeoPixel strip(PIXEL_COUNT, PIXEL_PIN, NEO_GBR + NEO_KHZ800);
+
+BluetoothManager bluetoothManager(strip);
+
 Audio audio;
 //WiFiMulti wifiMulti;
 //String ssid = "";
@@ -151,7 +159,7 @@ void playSong(int index, int orderIndex = 0) {
       Serial.print(index);
       Serial.print(" = ");
       Serial.println(fileNames[index].c_str());
-      audio.connecttoSD(fileNames[index].c_str());
+      audio.connecttoFS(SD, fileNames[index].c_str());
  }
 
 
@@ -188,7 +196,7 @@ float getVoltage(){
 void applyNewVolume(){
     audio.setVolume(volume);
     int ledCount = volume - 5;
-    colorSet(strip.Color(  255,   255, 255), ledCount);
+    colorSet(strip.Color(255, 255, 255), ledCount);
     Serial.print("Changed volume to: ");
     Serial.println(volume);
 }
@@ -203,7 +211,7 @@ static void handleSec1Click() {
         volume = 5; // Ensure it doesn't go below 0
     }
     applyNewVolume();
-    audio.connecttoSD("/Settings/Leiser.mp3");
+    audio.connecttoFS(SD,"/Settings/Leiser.mp3");
   }
 }
 
@@ -217,7 +225,7 @@ static void handleSec2Click() {
       volume = 21; // Ensure it doesn't exceed 21
     }
     applyNewVolume();
-    audio.connecttoSD("/Settings/Lauter.mp3");
+    audio.connecttoFS(SD,"/Settings/Lauter.mp3");
   }
 }
 
@@ -226,7 +234,7 @@ static void handleMainButtonLongClick() {
   Serial.println("Main Longpress");
   if(settingsMenu == 0){
     settingsMenu = 1;
-    audio.connecttoSD("/Settings/Lautstärke.mp3");
+    audio.connecttoFS(SD,"/Settings/Lautstärke.mp3");
     applyNewVolume();
     return;
   }
@@ -253,13 +261,13 @@ static void handleMainButtonClick() {
       if(++mode > 3) mode = 0; // Advance to next mode, wrap around after #8
       switch(mode) {           // Start the new animation...
         case 0:
-          colorWipe(strip.Color(  0,   165,   255, 10), 10);    // Orange
+          colorWipe(strip.Color(  0,   165,   255), 10);    // Orange
           break;
         case 1:
-          colorWipe(strip.Color(  0, 255,   0, 64), 10);    // Green
+          colorWipe(strip.Color(  0, 255,   0), 10);    // Green
           break;
         case 2:
-          colorWipe(strip.Color(255,   0,   0, 64), 10);    // Red
+          colorWipe(strip.Color(255,   0,   0), 10);    // Red
           break;
         case 3:
           colorWipe(strip.Color(  0,   0, 255, 64), 10);    // Blue
@@ -325,9 +333,24 @@ void initWifiAndOta()
   Serial.println(WiFi.localIP());
 }
 
+void onBluetoothConnection(bool connected) {
+  if (connected) {
+    Serial.println("Device connected!");
+  } else {
+    Serial.println("Device disconnected!");
+  }
+}
+
 void setup() {
   
+  //initBluetooth();
+  
+  Serial.begin(115200);
+  //initBluetooth();
   initWifiAndOta();
+  bluetoothManager.init();
+  //bluetoothManager.setConnectionCallback(onBluetoothConnection); // Register the callback
+  Serial.println("INIT Bluetooth1"); 
 
   pinMode(VOLTAGE_PIN, INPUT);
   int voltagePixelCount = convertToPixelCount(convertToPercentage(getVoltage()));
@@ -335,9 +358,8 @@ void setup() {
   strip.begin();
   strip.show();
   strip.setBrightness(50);
-  colorWipe(strip.Color(  0, 255,   0, 64), 10, voltagePixelCount);    // Green
+  colorWipe(strip.Color(  0, 255,   0), 10, voltagePixelCount);    // Green
 
-  Serial.begin(115200);
   SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
   SPI.setFrequency(1000000);
   SD.begin(SD_CS);
@@ -351,6 +373,7 @@ void setup() {
   btnMain.attachLongPressStart(handleMainButtonLongClick);
 
   listFilesInSDCard(fileNames, maxSize);
+  Serial.println("INIT Bluetooth2"); 
 
   // Print the file names
   for (int i = 0; i < maxSize; i++) {
@@ -364,7 +387,6 @@ void setup() {
   Serial.println(fileCount);
   
   fillPlayOrderArray(fileCount);
-
 }
 
 
@@ -378,6 +400,8 @@ void loop()
   //Serial.print(voltagePercent);
   //Serial.print(" -> ");
   //Serial.println(convertToPixelCount(voltagePercent));
+  bluetoothManager.update(voltage);
+  audio.loop();
 
   if(voltagePercent < 5){
     Serial.println("Battery empty!");
@@ -386,7 +410,6 @@ void loop()
     esp_deep_sleep_start();
     return;
   }
-  audio.loop();
   btnSec1.tick();
   btnSec2.tick();
   btnMain.tick();
