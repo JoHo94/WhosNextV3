@@ -70,7 +70,7 @@ int fileCount = 0;
 const int maxSize = 40;
 String fileNames[maxSize];
 
-int volume = 19;
+int volume = 21;
 int settingsMenu = 0; // 0 = no settings, 1 = Lautstärke, 2 = Spieleranzahl
 int mode = 0;
 
