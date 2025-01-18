@@ -5,7 +5,7 @@
 #include "SD.h"
 #include "FS.h"
 #include <OneButton.h>
-
+#include <ArduinoJson.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <WiFiUdp.h>
@@ -26,6 +26,7 @@
 #define I2S_BCLK      5 //2 4
 #define I2S_LRC       6 //15
 
+#define STATUS_PIN   14  // Digital IO pin connected to the NeoPixels.
 #define PIXEL_PIN    9  // Digital IO pin connected to the NeoPixels.
 #define PIXEL_COUNT 16  // Number of NeoPixels
 
@@ -56,6 +57,7 @@ OneButton btnMain = OneButton(
 
 
 Adafruit_NeoPixel strip(PIXEL_COUNT, PIXEL_PIN, NEO_GBR + NEO_KHZ800);
+Adafruit_NeoPixel statusLed(1, STATUS_PIN, NEO_GBR + NEO_KHZ800);
 
 BluetoothManager bluetoothManager(strip);
 
@@ -162,6 +164,22 @@ void playSong(int index, int orderIndex = 0) {
       audio.connecttoFS(SD, fileNames[index].c_str());
  }
 
+
+void writeFile(fs::FS &fs, const char *path, const char *message) {
+  Serial.printf("Writing file: %s\n", path);
+
+  File file = fs.open(path, FILE_WRITE);
+  if (!file) {
+    Serial.println("Failed to open file for writing");
+    return;
+  }
+  if (file.print(message)) {
+    Serial.println("File written");
+  } else {
+    Serial.println("Write failed");
+  }
+  file.close();
+}
 
 float convertToPercentage(float voltage) {
   float minVoltage = 3.3;
@@ -336,21 +354,59 @@ void initWifiAndOta()
 void onBluetoothConnection(bool connected) {
   if (connected) {
     Serial.println("Device connected!");
+    strip.clear();
+    statusLed.Color(0,255,0);
+    statusLed.show();
   } else {
+    strip.clear();
     Serial.println("Device disconnected!");
+    statusLed.Color(255, 0, 0);
+    statusLed.show();
   }
 }
 
+void configReceived(String rawJson) {
+  Serial.println("Received config:");
+  Serial.println(rawJson);
+  JsonDocument doc;
+  deserializeJson(doc, rawJson);
+
+  writeFile(SD, "/config.txt", rawJson.c_str());
+
+  String playerColor1 = doc["playerOrder"][0];
+  int brightness = doc["brightness"];
+  int volume = doc["volume"];
+  String energyMode = doc["energyMode"];
+
+  Serial.print("Player color 1: ");
+  Serial.println(playerColor1);
+  Serial.print("Brightness: ");
+  Serial.println(brightness);
+  Serial.print("Volume: ");
+  Serial.println(volume);
+  Serial.print("Energy mode: ");
+  Serial.println(energyMode);
+
+  int r = (int)strtol(playerColor1.substring(1, 3).c_str(), nullptr, 16);
+  int g = (int)strtol(playerColor1.substring(3, 5).c_str(), nullptr, 16);
+  int b = (int)strtol(playerColor1.substring(5, 7).c_str(), nullptr, 16);
+
+
+
+    strip.clear();
+    for(int i=0; i<16; i++) { // For each pixel in strip...
+        strip.setPixelColor(i, strip.Color(r,g,b));         //  Set pixel's color (in RAM)
+    }
+    strip.show();                          //  Update strip to match
+}
+
 void setup() {
-  
-  //initBluetooth();
-  
+    
   Serial.begin(115200);
-  //initBluetooth();
   initWifiAndOta();
   bluetoothManager.init();
-  //bluetoothManager.setConnectionCallback(onBluetoothConnection); // Register the callback
-  Serial.println("INIT Bluetooth1"); 
+  bluetoothManager.setConnectionCallback(onBluetoothConnection); // Register the callback
+  bluetoothManager.setConfigReceivedCallback(configReceived); // Register the callback
 
   pinMode(VOLTAGE_PIN, INPUT);
   int voltagePixelCount = convertToPixelCount(convertToPercentage(getVoltage()));
@@ -359,6 +415,11 @@ void setup() {
   strip.show();
   strip.setBrightness(50);
   colorWipe(strip.Color(  0, 255,   0), 10, voltagePixelCount);    // Green
+
+  statusLed.begin();
+  statusLed.setBrightness(50);
+  colorWipe(statusLed.Color(  255, 0,   0), 10, voltagePixelCount);    // Green
+  statusLed.show();
 
   SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
   SPI.setFrequency(1000000);
@@ -400,7 +461,7 @@ void loop()
   //Serial.print(voltagePercent);
   //Serial.print(" -> ");
   //Serial.println(convertToPixelCount(voltagePercent));
-  bluetoothManager.update(voltage);
+  //bluetoothManager.update(voltage);
   audio.loop();
 
   if(voltagePercent < 5){

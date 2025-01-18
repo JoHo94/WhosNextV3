@@ -10,21 +10,24 @@
 #define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 #define COLOR_CHARACTERISTIC_UUID "19B10002-E8F2-537E-4F6C-D104768A1214"
+#define JSON_CHARACTERISTIC_UUID "19B10002-E8F2-537E-4F6C-D104768A1215"
 
 class BluetoothManager {
 private:
   NimBLEServer *pServer = nullptr;
   NimBLECharacteristic *pCharacteristic = nullptr;
   NimBLECharacteristic *pColorCharacteristic = nullptr;
+  NimBLECharacteristic *jsonCharacteristic = nullptr;
   Adafruit_NeoPixel &strip;
   bool deviceConnected = false;
   bool oldDeviceConnected = false;
   void (*connectionCallback)(bool connected) = nullptr;
+  void (*configReceivedCallback)(String rawJson) = nullptr;
 
-  class MyServerCallbacks : public NimBLEServerCallbacks {
+  class BluetoothCallbacks : public NimBLEServerCallbacks {
     BluetoothManager &parent;
   public:
-    MyServerCallbacks(BluetoothManager &parentRef) : parent(parentRef) {}
+    BluetoothCallbacks(BluetoothManager &parentRef) : parent(parentRef) {}
     void onConnect(NimBLEServer *pServer, NimBLEConnInfo& connInfo) override {
       parent.deviceConnected = true;
       if (parent.connectionCallback) {
@@ -32,7 +35,7 @@ private:
       }
     }
     void onDisconnect(NimBLEServer *pServer, NimBLEConnInfo& connInfo, int reason) override {
-      parent.deviceConnected = false;
+      parent.deviceConnected = false; 
       if (parent.connectionCallback) {
         parent.connectionCallback(false);
       }
@@ -56,6 +59,26 @@ private:
         }
         strip.show();                          //  Update strip to match
     }
+  };  
+  
+  class JsonCallback : public NimBLECharacteristicCallbacks {
+    BluetoothManager &parent;
+  public:
+    JsonCallback(BluetoothManager &parentRef) : parent(parentRef) {}
+    String v = "";
+    void onWrite(NimBLECharacteristic *pCharacteristic, NimBLEConnInfo& connInfo) override {
+      String value = pCharacteristic->getValue();
+      v += value;
+      if (value.endsWith("z")){
+        // Drop last character
+        v = v.substring(0, v.length()-1);
+        if(parent.configReceivedCallback){
+          parent.configReceivedCallback(v);
+        }
+        Serial.println(v);
+        v = "";
+      }
+    }
   };
 
 public:
@@ -63,6 +86,10 @@ public:
 
   void setConnectionCallback(void (*callback)(bool connected)) {
     connectionCallback = callback;
+  }
+  
+  void setConfigReceivedCallback(void (*callback)(String rawJson)) {
+    configReceivedCallback = callback;
   }
 
   void init() {
@@ -72,9 +99,11 @@ public:
     NimBLEDevice::init("ESP32");
     pServer = NimBLEDevice::createServer();
     NimBLEService*        pService = pServer->createService(SERVICE_UUID);
-    NimBLECharacteristic* pCharacteristic = pService->createCharacteristic( CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY| NIMBLE_PROPERTY::INDICATE );
+    NimBLECharacteristic* pCharacteristic = pService->createCharacteristic( CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
     NimBLECharacteristic* pColorCharacteristic = pService->createCharacteristic( COLOR_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::WRITE );
+    NimBLECharacteristic* jsonCharacteristic = pService->createCharacteristic( JSON_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY );
     pColorCharacteristic->setCallbacks(new ColorCallback(strip));
+    jsonCharacteristic->setCallbacks(new JsonCallback(*this));
     pService->start();
     NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
     pAdvertising->setName("ESP32");
