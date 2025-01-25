@@ -17,26 +17,9 @@
 
 #include "BluetoothManager.h"
 #include "LEDManager.h"
-
-// Digital I/O used
-#define SD_CS         10 // 34 5
-#define SPI_MOSI      11 // 36 23
-#define SPI_MISO      13 // 38 19
-#define SPI_SCK       12 // 35 18
-#define I2S_DOUT      4 // 14
-#define I2S_BCLK      5 //2 4
-#define I2S_LRC       6 //15
-
-#define STATUS_PIN   14  // Digital IO pin connected to the NeoPixels.
-#define PIXEL_PIN    9  // Digital IO pin connected to the NeoPixels.
-#define PIXEL_COUNT 16  // Number of NeoPixels
-
-#define VOLTAGE_PIN 3
-
-#define BUTTON_MAIN   18
-#define BUTTON_SEC_1 8
-#define Button_SEC_2 7
-
+#include "SDManager.h"
+#include "pinout.h"
+#include "PlayOrderManager.h"
 
 OneButton btnSec1 = OneButton(
   BUTTON_SEC_1,  // Input pin for the button
@@ -56,99 +39,25 @@ OneButton btnMain = OneButton(
   true         // Enable internal pull-up resistor
 );
 
-
 LEDManager mainLed(PIXEL_COUNT, PIXEL_PIN);
 LEDManager statusLed(1, STATUS_PIN);
 
 BluetoothManager bluetoothManager;
+SDManager sdManager(SD_CS); // Initialize SDManager
 Audio audio;
+PlayOrderManager* playOrderManager = nullptr;
 
 int playOrder[20]; // Saves the current random playOrder
 int currentSong = 101;
-int fileCount = 0;
-const int maxSize = 40;
-String fileNames[maxSize];
 
 int volume = 21;
 int settingsMenu = 0; // 0 = no settings, 1 = Lautstärke, 2 = Spieleranzahl
 int mode = 0;
 
-void listFilesInSDCard(String fileNames[], int maxSize) {
-  File root = SD.open("/");
-  fileCount = 0;
-
-  while (true) {
-    File entry = root.openNextFile();
-    if (!entry) {
-      // No more files
-      break;
-    }
-    if (entry.isDirectory()) {
-      // Skip directories
-      continue;
-    }
-
-    String fileName = entry.name();
-    if (fileName.endsWith(".mp3")) {
-      Serial.println(fileName);
-    fileNames[fileCount] = fileName;
-    fileCount++;
-    }
-
-    entry.close();
-
-    if (fileCount >= maxSize) {
-      // Reached the maximum size of the array
-      break;
-    }
-  }
-
-  root.close();
-}
-
-void fillPlayOrderArray(int songCount) {
-  for(int i = 0; i < songCount; i++){
-    playOrder[i] = i;
-  }
-
-  for(int i = songCount-1; i > 1; i--){
-    int j = random(i);
-    int tmp = playOrder[i];
-    playOrder[i] = playOrder[j];
-    playOrder[j] = tmp;
-  }
-
-  Serial.println("Playorder:");
-  for(int i = 0; i < songCount; i++){
-    Serial.println(playOrder[i]);
-  }
-}
-
-void playSong(int index, int orderIndex = 0) {
-      Serial.print("Play Index ");
-      Serial.print(orderIndex);
-      Serial.print("-> ");
-      Serial.print(index);
-      Serial.print(" = ");
-      Serial.println(fileNames[index].c_str());
-      audio.connecttoFS(SD, fileNames[index].c_str());
- }
-
-
-void writeFile(fs::FS &fs, const char *path, const char *message) {
-  Serial.printf("Writing file: %s\n", path);
-
-  File file = fs.open(path, FILE_WRITE);
-  if (!file) {
-    Serial.println("Failed to open file for writing");
-    return;
-  }
-  if (file.print(message)) {
-    Serial.println("File written");
-  } else {
-    Serial.println("Write failed");
-  }
-  file.close();
+void playSong(const String& filename) {
+    Serial.print("Playing: ");
+    Serial.println(filename);
+    audio.connecttoFS(SD, filename.c_str());
 }
 
 float convertToPercentage(float voltage) {
@@ -237,14 +146,9 @@ static void handleMainButtonLongClick() {
 // Handler function for a single click:
 static void handleMainButtonClick() {
   Serial.println("MainButton Clicked!!");
-        if(currentSong < fileCount){
-        playSong(playOrder[currentSong], currentSong);
-        currentSong++;
-      } else {
-        fillPlayOrderArray(fileCount);
-        currentSong = 1;
-        playSong(playOrder[0], 0);
-      }
+        playSong(playOrderManager->getCurrentSong());
+        playOrderManager->nextSong();
+
 
       if(++mode > 3) mode = 0; // Advance to next mode, wrap around after #8
       switch(mode) {           // Start the new animation...
@@ -263,45 +167,6 @@ static void handleMainButtonClick() {
       }
 }
 
-void initWifiAndOta()
- {
-  Serial.println("Booting");
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-
-  ArduinoOTA.setHostname("thebutton");
-  ArduinoOTA
-    .onStart([]() {
-      String type;
-      if (ArduinoOTA.getCommand() == U_FLASH)
-        type = "sketch";
-      else // U_SPIFFS
-        type = "filesystem";
-
-      Serial.println("Start updating " + type);
-    })
-    .onEnd([]() {
-      Serial.println("\nEnd");
-    })
-    .onProgress([](unsigned int progress, unsigned int total) {
-      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-    })
-    .onError([](ota_error_t error) {
-      Serial.printf("Error[%u]: ", error);
-      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-      else if (error == OTA_END_ERROR) Serial.println("End Failed");
-    });
-
-    ArduinoOTA.begin();
-
-  Serial.println("Ready");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-}
-
 void onBluetoothConnection(bool connected) {
   if (connected) {
     Serial.println("Device connected!");
@@ -317,8 +182,8 @@ void configReceived(String rawJson) {
   Serial.println(rawJson);
   JsonDocument doc;
   deserializeJson(doc, rawJson);
-
-  writeFile(SD, "/config.txt", rawJson.c_str());
+  
+  sdManager.writeFile("/config.txt", rawJson.c_str());
 
   String playerColor1 = doc["playerOrder"][0];
   int brightness = doc["brightness"];
@@ -344,10 +209,10 @@ void configReceived(String rawJson) {
 void setup() {
     
   Serial.begin(115200);
-  initWifiAndOta();
   bluetoothManager.init();
   bluetoothManager.setConnectionCallback(onBluetoothConnection); // Register the callback
   bluetoothManager.setConfigReceivedCallback(configReceived); // Register the callback
+
 
   pinMode(VOLTAGE_PIN, INPUT);
   int voltagePixelCount = convertToPixelCount(convertToPercentage(getVoltage()));
@@ -374,21 +239,13 @@ void setup() {
   btnMain.attachClick(handleMainButtonClick);
   btnMain.attachLongPressStart(handleMainButtonLongClick);
 
-  listFilesInSDCard(fileNames, maxSize);
-  Serial.println("INIT Bluetooth2"); 
-
-  // Print the file names
-  for (int i = 0; i < maxSize; i++) {
-    if (fileNames[i] != "") {
-      Serial.println(fileNames[i]);
-    } else {
-      break;
-    }
+  // read files to vector
+  std::vector<String> fileNames = sdManager.readFileNames();
+  playOrderManager = new PlayOrderManager(fileNames);
+  // print file names
+  for (int i = 0; i < fileNames.size(); i++) {
+    Serial.println(fileNames[i]);
   }
-  Serial.print("Filecount:");
-  Serial.println(fileCount);
-  
-  fillPlayOrderArray(fileCount);
 }
 
 
