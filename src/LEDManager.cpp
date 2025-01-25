@@ -48,10 +48,7 @@ void LEDManager::colorSet(uint32_t color, int number) {
 }
 
 void LEDManager::setColorFromString(const String& hexColor) {
-  int r = (int)strtol(hexColor.substring(1, 3).c_str(), nullptr, 16);
-  int g = (int)strtol(hexColor.substring(3, 5).c_str(), nullptr, 16);
-  int b = (int)strtol(hexColor.substring(5, 7).c_str(), nullptr, 16);
-  uint32_t color = strip.Color(r, g, b);
+  uint32_t color = hexStringToColor(hexColor);
   colorSet(color);
 }
 
@@ -68,4 +65,31 @@ void LEDManager::rainbow(int wait) {
     strip.show();
     delay(wait);
   }
+}
+
+void LEDManager::setColorsEvenly(const std::vector<String>& colors) {
+  int numPixels = strip.numPixels();
+  int numColors = colors.size();
+  int segmentLength = numPixels / numColors;
+
+  for (int i = 0; i < numColors; i++) {
+    uint32_t color = hexStringToColor(colors[i]);
+    for (int j = 0; j < segmentLength; j++) {
+      strip.setPixelColor(i * segmentLength + j, color);
+    }
+  }
+
+  // Handle any remaining pixels if the number of pixels is not evenly divisible by the number of colors
+  for (int i = numColors * segmentLength; i < numPixels; i++) {
+    strip.setPixelColor(i, hexStringToColor(colors[numColors - 1]));
+  }
+
+  strip.show();
+}
+
+uint32_t LEDManager::hexStringToColor(const String& hexColor) {
+  int r = (int)strtol(hexColor.substring(1, 3).c_str(), nullptr, 16);
+  int g = (int)strtol(hexColor.substring(3, 5).c_str(), nullptr, 16);
+  int b = (int)strtol(hexColor.substring(5, 7).c_str(), nullptr, 16);
+  return strip.Color(r, g, b);
 }

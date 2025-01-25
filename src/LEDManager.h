@@ -17,9 +17,11 @@ public:
     void setColorFromString(const String& hexColor);
     void rainbow(int wait);
     uint32_t Color(uint8_t r, uint8_t g, uint8_t b);
+    void setColorsEvenly(const std::vector<String>& colors);
 
 private:
     Adafruit_NeoPixel strip;
+    uint32_t hexStringToColor(const String& hexColor);
 };
 
 #endif // LEDMANAGER_H

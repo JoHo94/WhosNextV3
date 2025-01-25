@@ -60,8 +60,7 @@ void applyConfig(const Config& config) {
 
 void applyConfigInLoop() {
     if (!newConfig.playerColors.empty()) {
-        String playerColor1 = newConfig.playerColors[0];
-        mainLed.setColorFromString(playerColor1);
+      mainLed.setColorsEvenly(newConfig.playerColors);
     }
     volume = newConfig.volume;
     audio.setVolume(volume);
