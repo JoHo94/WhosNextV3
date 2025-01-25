@@ -47,6 +47,18 @@ void LEDManager::colorSet(uint32_t color, int number) {
   strip.show();
 }
 
+void LEDManager::setColorFromString(const String& hexColor) {
+  int r = (int)strtol(hexColor.substring(1, 3).c_str(), nullptr, 16);
+  int g = (int)strtol(hexColor.substring(3, 5).c_str(), nullptr, 16);
+  int b = (int)strtol(hexColor.substring(5, 7).c_str(), nullptr, 16);
+  uint32_t color = strip.Color(r, g, b);
+  colorSet(color);
+}
+
+uint32_t LEDManager::Color(uint8_t r, uint8_t g, uint8_t b) {
+  return strip.Color(r, g, b);
+}
+
 void LEDManager::rainbow(int wait) {
   for (long firstPixelHue = 0; firstPixelHue < 3 * 65536; firstPixelHue += 256) {
     for (int i = 0; i < strip.numPixels(); i++) {
@@ -56,9 +68,4 @@ void LEDManager::rainbow(int wait) {
     strip.show();
     delay(wait);
   }
-}
-
-
-uint32_t LEDManager::Color(uint8_t r, uint8_t g, uint8_t b) {
-  return strip.Color(r, g, b);
 }

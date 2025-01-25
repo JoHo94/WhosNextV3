@@ -21,6 +21,7 @@
 #include "pinout.h"
 #include "PlayOrderManager.h"
 #include "BatteryManager.h"
+#include "ConfigManager.h"
 
 //Pin, activeLow, pullupActive
 OneButton btnSec1 = OneButton( BUTTON_SEC_1, true, true);
@@ -32,6 +33,7 @@ LEDManager statusLed(1, STATUS_PIN);
 
 BluetoothManager bluetoothManager;
 SDManager sdManager(SD_CS);
+ConfigManager configManager(sdManager);
 Audio audio;
 PlayOrderManager* playOrderManager = nullptr;
 BatteryManager batteryManager(VOLTAGE_PIN, PIXEL_COUNT);
@@ -44,6 +46,16 @@ void playSong(const String& filename) {
     Serial.print("Playing: ");
     Serial.println(filename);
     audio.connecttoFS(SD, filename.c_str());
+}
+
+void applyConfig(const Config& config) {
+  Serial.print("Config changed to: ");
+  Serial.print(config.toString());
+  if (!config.playerColors.empty()) {
+      String playerColor1 = config.playerColors[0];
+      mainLed.setColorFromString(playerColor1);
+  }
+  volume = config.volume;
 }
 
 void applyNewVolume(){
@@ -132,32 +144,7 @@ void onBluetoothConnection(bool connected) {
 }
 
 void configReceived(String rawJson) {
-  Serial.println("Received config:");
-  Serial.println(rawJson);
-  JsonDocument doc;
-  deserializeJson(doc, rawJson);
-  
-  sdManager.writeFile("/config.txt", rawJson.c_str());
-
-  String playerColor1 = doc["playerOrder"][0];
-  int brightness = doc["brightness"];
-  int volume = doc["volume"];
-  String energyMode = doc["energyMode"];
-
-  Serial.print("Player color 1: ");
-  Serial.println(playerColor1);
-  Serial.print("Brightness: ");
-  Serial.println(brightness);
-  Serial.print("Volume: ");
-  Serial.println(volume);
-  Serial.print("Energy mode: ");
-  Serial.println(energyMode);
-
-  int r = (int)strtol(playerColor1.substring(1, 3).c_str(), nullptr, 16);
-  int g = (int)strtol(playerColor1.substring(3, 5).c_str(), nullptr, 16);
-  int b = (int)strtol(playerColor1.substring(5, 7).c_str(), nullptr, 16);
-
-  mainLed.colorSet(mainLed.Color(r, g, b));
+  configManager.saveConfig(rawJson);
 }
 
 void setup() {
@@ -166,6 +153,8 @@ void setup() {
   bluetoothManager.init();
   bluetoothManager.setConnectionCallback(onBluetoothConnection); // Register the callback
   bluetoothManager.setConfigReceivedCallback(configReceived); // Register the callback
+  
+  configManager.setConfigCallback(applyConfig);
 
   pinMode(VOLTAGE_PIN, INPUT);
 

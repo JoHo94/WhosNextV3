@@ -1,21 +1,20 @@
-#ifndef SD_MANAGER_H
-#define SD_MANAGER_H
+#ifndef SDMANAGER_H
+#define SDMANAGER_H
 
-#include "FS.h"
-#include "SD.h"
-#include "SPI.h"
+#include <Arduino.h>
+#include <SD.h>
+#include <vector>
 
 class SDManager {
 public:
-  int fileCount = 0;
-  const int maxSize = 40;
-  SDManager(uint8_t csPin);
-  bool begin();
-  std::vector<String> readFileNames();
-  void writeFile(const char *path, const char *message);
+    SDManager(int csPin);
+    void writeFile(const char* path, const char* message);
+    String readFile(const char* path);
+    std::vector<String> readFileNames();
+    std::vector<String> listFiles(const char* dirname, uint8_t levels);
 
 private:
-  uint8_t csPin;
+    int csPin;
 };
 
-#endif // SD_MANAGER_H
+#endif // SDMANAGER_H

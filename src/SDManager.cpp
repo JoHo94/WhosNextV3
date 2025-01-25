@@ -1,10 +1,26 @@
 #include "SDManager.h"
 
-SDManager::SDManager(uint8_t csPin) : csPin(csPin) {}
-
-bool SDManager::begin() {
-  return SD.begin(csPin);
+SDManager::SDManager(int csPin) : csPin(csPin) {
+    if (!SD.begin(csPin)) {
+        Serial.println("Card Mount Failed");
+        return;
+    }
 }
+
+void SDManager::writeFile(const char* path, const char* message) {
+    File file = SD.open(path, FILE_WRITE);
+    if (!file) {
+        Serial.println("Failed to open file for writing");
+        return;
+    }
+    if (file.print(message)) {
+        Serial.println("File written");
+    } else {
+        Serial.println("Write failed");
+    }
+    file.close();
+}
+
 
 std::vector<String> SDManager::readFileNames() {
     std::vector<String> names;
@@ -34,18 +50,45 @@ std::vector<String> SDManager::readFileNames() {
   return names;
 }
 
-void SDManager::writeFile(const char *path, const char *message) {
-  Serial.printf("Writing file: %s\n", path);
+String SDManager::readFile(const char* path) {
+    File file = SD.open(path);
+    if (!file) {
+        Serial.println("Failed to open file for reading");
+        return "";
+    }
 
-  File file = SD.open(path, FILE_WRITE);
-  if (!file) {
-    Serial.println("Failed to open file for writing");
-    return;
-  }
-  if (file.print(message)) {
-    Serial.println("File written");
-  } else {
-    Serial.println("Write failed");
-  }
-  file.close();
+    String content;
+    while (file.available()) {
+        content += (char)file.read();
+    }
+    file.close();
+    return content;
+}
+
+std::vector<String> SDManager::listFiles(const char* dirname, uint8_t levels) {
+    std::vector<String> fileNames;
+    File root = SD.open(dirname);
+
+    if (!root) {
+        Serial.println("Failed to open directory");
+        return fileNames;
+    }
+    if (!root.isDirectory()) {
+        Serial.println("Not a directory");
+        return fileNames;
+    }
+
+    File file = root.openNextFile();
+    while (file) {
+        if (file.isDirectory()) {
+            if (levels) {
+                std::vector<String> subDirFiles = listFiles(file.name(), levels - 1);
+                fileNames.insert(fileNames.end(), subDirFiles.begin(), subDirFiles.end());
+            }
+        } else {
+            fileNames.push_back(String(file.name()));
+        }
+        file = root.openNextFile();
+    }
+    return fileNames;
 }
