@@ -20,6 +20,7 @@
 #include "SDManager.h"
 #include "pinout.h"
 #include "PlayOrderManager.h"
+#include "BatteryManager.h"
 
 OneButton btnSec1 = OneButton(
   BUTTON_SEC_1,  // Input pin for the button
@@ -46,6 +47,7 @@ BluetoothManager bluetoothManager;
 SDManager sdManager(SD_CS); // Initialize SDManager
 Audio audio;
 PlayOrderManager* playOrderManager = nullptr;
+BatteryManager batteryManager(VOLTAGE_PIN, PIXEL_COUNT);
 
 int playOrder[20]; // Saves the current random playOrder
 int currentSong = 101;
@@ -58,36 +60,6 @@ void playSong(const String& filename) {
     Serial.print("Playing: ");
     Serial.println(filename);
     audio.connecttoFS(SD, filename.c_str());
-}
-
-float convertToPercentage(float voltage) {
-  float minVoltage = 3.3;
-  float maxVoltage = 4.20;
-  float voltageRange = maxVoltage - minVoltage;
-  float percentage = ((voltage - minVoltage) / voltageRange) * 100;
-  return percentage;
-}
-
-int convertToPixelCount(float percent){
-  float pixelCount = percent / (100/(PIXEL_COUNT-1));
-  int roundedCount = (int)pixelCount+.5;
-  roundedCount += 1;
-  if(roundedCount < 1){
-    roundedCount = 1;
-  }
-  if(roundedCount > 16){
-    roundedCount = 16;
-  }
-  return roundedCount;
-}
-
-float getVoltage(){
-  uint32_t Vbatt = 0;
-  for(int i = 0; i < 16; i++) {
-    Vbatt = Vbatt + analogReadMilliVolts(VOLTAGE_PIN); // ADC with correction   
-  }
-  float Vbattf = 2 * Vbatt / 16 / 1000.0;     // attenuation ratio 1/2, mV --> V
-  return Vbattf;
 }
 
 void applyNewVolume(){
@@ -140,7 +112,6 @@ static void handleMainButtonLongClick() {
     mainLed.rainbow(0);
     return;
   }
-  
 } 
 
 // Handler function for a single click:
@@ -213,9 +184,7 @@ void setup() {
   bluetoothManager.setConnectionCallback(onBluetoothConnection); // Register the callback
   bluetoothManager.setConfigReceivedCallback(configReceived); // Register the callback
 
-
   pinMode(VOLTAGE_PIN, INPUT);
-  int voltagePixelCount = convertToPixelCount(convertToPercentage(getVoltage()));
 
   // strip.begin();
   // strip.show();
@@ -251,8 +220,8 @@ void setup() {
 
 void loop()
 {
-  float voltage = getVoltage();
-  int voltagePercent = convertToPercentage(voltage);
+  // float voltage = getVoltage();
+  // int voltagePercent = convertToPercentage(voltage);
   //Serial.print("Voltage: ");
   //Serial.print(voltage);
   //Serial.print(" -> ");
@@ -260,19 +229,12 @@ void loop()
   //Serial.print(" -> ");
   //Serial.println(convertToPixelCount(voltagePercent));
   //bluetoothManager.update(voltage);
-  audio.loop();
-
-  if(voltagePercent < 5){
-    Serial.println("Battery empty!");
-    mainLed.setBrightness(20);
-    mainLed.colorWipe(mainLed.Color(255,   255,   255), 10, 1);    // Red
-    esp_deep_sleep_start();
-    return;
+  if (batteryManager.checkBattery()) {
+      return; // Break the loop if the battery is low
   }
+  audio.loop();
   btnSec1.tick();
   btnSec2.tick();
   btnMain.tick();
-  
-  ArduinoOTA.handle();
 }
 
