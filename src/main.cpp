@@ -16,6 +16,7 @@
 #include "secrets.h"
 
 #include "BluetoothManager.h"
+#include "LEDManager.h"
 
 // Digital I/O used
 #define SD_CS         10 // 34 5
@@ -56,15 +57,11 @@ OneButton btnMain = OneButton(
 );
 
 
-Adafruit_NeoPixel strip(PIXEL_COUNT, PIXEL_PIN, NEO_GBR + NEO_KHZ800);
-Adafruit_NeoPixel statusLed(1, STATUS_PIN, NEO_GBR + NEO_KHZ800);
+LEDManager mainLed(PIXEL_COUNT, PIXEL_PIN);
+LEDManager statusLed(1, STATUS_PIN);
 
-BluetoothManager bluetoothManager(strip);
-
+BluetoothManager bluetoothManager;
 Audio audio;
-//WiFiMulti wifiMulti;
-//String ssid = "";
-//String password = "";
 
 int playOrder[20]; // Saves the current random playOrder
 int currentSong = 101;
@@ -75,33 +72,6 @@ String fileNames[maxSize];
 int volume = 21;
 int settingsMenu = 0; // 0 = no settings, 1 = Lautstärke, 2 = Spieleranzahl
 int mode = 0;
-
-void colorWipe(uint32_t color, int wait, int number = strip.numPixels()) {
-  for(int i=0; i<number; i++) { // For each pixel in strip...
-    strip.setPixelColor(i, color);         //  Set pixel's color (in RAM)
-    strip.show();                          //  Update strip to match
-    delay(wait);                           //  Pause for a moment
-  }
-}
-
-void colorSet(uint32_t color, int number = strip.numPixels()) {
-  strip.clear();
-  for(int i=0; i<number; i++) { // For each pixel in strip...
-    strip.setPixelColor(i, color);         //  Set pixel's color (in RAM)
-  }
-  strip.show();
-}
-
-void rainbow(int wait) {
-  for(long firstPixelHue = 0; firstPixelHue < 3*65536; firstPixelHue += 256) {
-    for(int i=0; i<strip.numPixels(); i++) { // For each pixel in strip...
-      int pixelHue = firstPixelHue + (i * 65536L / strip.numPixels());
-      strip.setPixelColor(i, strip.gamma32(strip.ColorHSV(pixelHue)));
-    }
-    strip.show(); // Update strip with new contents
-    delay(wait);  // Pause for a moment
-  }
-}
 
 void listFilesInSDCard(String fileNames[], int maxSize) {
   File root = SD.open("/");
@@ -214,7 +184,7 @@ float getVoltage(){
 void applyNewVolume(){
     audio.setVolume(volume);
     int ledCount = volume - 5;
-    colorSet(strip.Color(255, 255, 255), ledCount);
+    mainLed.colorSet(mainLed.Color(255, 255, 255), ledCount);
     Serial.print("Changed volume to: ");
     Serial.println(volume);
 }
@@ -258,7 +228,7 @@ static void handleMainButtonLongClick() {
   }
   if (settingsMenu == 1){
     settingsMenu = 0;
-    rainbow(0);
+    mainLed.rainbow(0);
     return;
   }
   
@@ -279,16 +249,16 @@ static void handleMainButtonClick() {
       if(++mode > 3) mode = 0; // Advance to next mode, wrap around after #8
       switch(mode) {           // Start the new animation...
         case 0:
-          colorWipe(strip.Color(  0,   165,   255), 10);    // Orange
+          mainLed.colorWipe(mainLed.Color(  0,   165,   255), 10);    // Orange
           break;
         case 1:
-          colorWipe(strip.Color(  0, 255,   0), 10);    // Green
+          mainLed.colorWipe(mainLed.Color(  0, 255,   0), 10);    // Green
           break;
         case 2:
-          colorWipe(strip.Color(255,   0,   0), 10);    // Red
+          mainLed.colorWipe(mainLed.Color(255,   0,   0), 10);    // Red
           break;
         case 3:
-          colorWipe(strip.Color(  0,   0, 255, 64), 10);    // Blue
+          mainLed.colorWipe(mainLed.Color(  0,   0, 255), 10);    // Blue
           break;
       }
 }
@@ -298,24 +268,6 @@ void initWifiAndOta()
   Serial.println("Booting");
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-     //while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    //   Serial.println("Connection Failed! Rebooting...");
-     //  delay(5000);
-    //   ESP.restart();
-     //}
-  
-  // Port defaults to 3232
-  // ArduinoOTA.setPort(3232);
-
-  // Hostname defaults to esp3232-[MAC]
-  // ArduinoOTA.setHostname("myesp32");
-
-  // No authentication by default
-  // ArduinoOTA.setPassword("admin");
-
-  // Password can be set with it's md5 value as well
-  // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
-  // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
 
   ArduinoOTA.setHostname("thebutton");
   ArduinoOTA
@@ -326,7 +278,6 @@ void initWifiAndOta()
       else // U_SPIFFS
         type = "filesystem";
 
-      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
       Serial.println("Start updating " + type);
     })
     .onEnd([]() {
@@ -354,14 +305,10 @@ void initWifiAndOta()
 void onBluetoothConnection(bool connected) {
   if (connected) {
     Serial.println("Device connected!");
-    strip.clear();
-    statusLed.Color(0,255,0);
-    statusLed.show();
+    statusLed.setPixelColor(0, mainLed.Color(0,255,0));
   } else {
-    strip.clear();
     Serial.println("Device disconnected!");
     statusLed.Color(255, 0, 0);
-    statusLed.show();
   }
 }
 
@@ -391,13 +338,7 @@ void configReceived(String rawJson) {
   int g = (int)strtol(playerColor1.substring(3, 5).c_str(), nullptr, 16);
   int b = (int)strtol(playerColor1.substring(5, 7).c_str(), nullptr, 16);
 
-
-
-    strip.clear();
-    for(int i=0; i<16; i++) { // For each pixel in strip...
-        strip.setPixelColor(i, strip.Color(r,g,b));         //  Set pixel's color (in RAM)
-    }
-    strip.show();                          //  Update strip to match
+  mainLed.colorSet(mainLed.Color(r, g, b));
 }
 
 void setup() {
@@ -411,15 +352,15 @@ void setup() {
   pinMode(VOLTAGE_PIN, INPUT);
   int voltagePixelCount = convertToPixelCount(convertToPercentage(getVoltage()));
 
-  strip.begin();
-  strip.show();
-  strip.setBrightness(50);
-  colorWipe(strip.Color(  0, 255,   0), 10, voltagePixelCount);    // Green
+  // strip.begin();
+  // strip.show();
+  // mainLed.setBrightness(50);
+  // colorWipe(strip.Color(  0, 255,   0), 10, voltagePixelCount);    // Green
 
-  statusLed.begin();
-  statusLed.setBrightness(50);
-  colorWipe(statusLed.Color(  255, 0,   0), 10, voltagePixelCount);    // Green
-  statusLed.show();
+  // statusLed.begin();
+  // statusLed.setBrightness(50);
+  // colorWipe(statusLed.Color(  255, 0,   0), 10, voltagePixelCount);    // Green
+  // statusLed.show();
 
   SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
   SPI.setFrequency(1000000);
@@ -466,8 +407,8 @@ void loop()
 
   if(voltagePercent < 5){
     Serial.println("Battery empty!");
-    strip.setBrightness(20);
-    colorWipe(strip.Color(255,   255,   255, 255), 10, 1);    // Red
+    mainLed.setBrightness(20);
+    mainLed.colorWipe(mainLed.Color(255,   255,   255), 10, 1);    // Red
     esp_deep_sleep_start();
     return;
   }
