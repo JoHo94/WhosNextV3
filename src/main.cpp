@@ -140,10 +140,10 @@ static void handleMainButtonClick() {
 void onBluetoothConnection(bool connected) {
   if (connected) {
     Serial.println("Device connected!");
-    statusLed.setPixelColor(0, mainLed.Color(0,255,0));
+    statusLed.setPixelColor(0, statusLed.Color(0,255,0));
   } else {
     Serial.println("Device disconnected!");
-    statusLed.Color(255, 0, 0);
+    statusLed.setPixelColor(0, statusLed.Color(0,0,255));
   }
 }
 
@@ -172,6 +172,8 @@ void setup() {
   // statusLed.setBrightness(50);
   // colorWipe(statusLed.Color(  255, 0,   0), 10, voltagePixelCount);    // Green
   // statusLed.show();
+
+  statusLed.colorSet(statusLed.Color(0, 0, 255));
 
   SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
   SPI.setFrequency(1000000);
@@ -207,8 +209,8 @@ void loop()
   //Serial.println(convertToPixelCount(voltagePercent));
   //bluetoothManager.update(voltage);
   if (batteryManager.checkBattery()) {
-      mainLed.setBrightness(20);
-      mainLed.colorWipe(mainLed.Color(255, 255, 255), 10, 1); // Red
+      mainLed.setBrightness(0);
+      statusLed.setPixelColor(0, statusLed.Color(255,0,0));
       return; // Break the loop if the battery is low
   }
 

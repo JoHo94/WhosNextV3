@@ -30,6 +30,8 @@ private:
       }
     }
     void onDisconnect(NimBLEServer *pServer, NimBLEConnInfo& connInfo, int reason) override {
+      Serial.println("Client disconnected - start advertising");
+      NimBLEDevice::startAdvertising();
       parent.deviceConnected = false; 
       if (parent.connectionCallback) {
         parent.connectionCallback(false);
@@ -74,6 +76,7 @@ public:
 
     NimBLEDevice::init("ESP32");
     pServer = NimBLEDevice::createServer();
+    pServer->setCallbacks(new BluetoothCallbacks(*this));
     NimBLEService*        pService = pServer->createService(SERVICE_UUID);
     NimBLECharacteristic* pCharacteristic = pService->createCharacteristic( CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
     NimBLECharacteristic* jsonCharacteristic = pService->createCharacteristic( JSON_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY );
@@ -88,25 +91,6 @@ public:
     Serial.printf("Advertising Started\n");
   }
 
-  void update(float voltage) {
-    if (deviceConnected) {
-      pCharacteristic->setValue(String(voltage));
-      Serial.println(voltage);
-      pCharacteristic->notify();
-      delay(500);
-    }
-
-    if (!deviceConnected && oldDeviceConnected) {
-      delay(500);
-      pServer->startAdvertising();
-      Serial.println("start advertising");
-      oldDeviceConnected = deviceConnected;
-    }
-
-    if (deviceConnected && !oldDeviceConnected) {
-      oldDeviceConnected = deviceConnected;
-    }
-  }
 };
 
 #endif // BLUETOOTH_MANAGER_H
