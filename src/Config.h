@@ -6,7 +6,7 @@
 
 struct Config {
     std::vector<String> playerColors = {"#FF0000", "#00FF00", "#0000FF", "#FFFF00"};
-    int brightness = 50;
+    int brightness = 128;
     int volume = 21;
     String energyMode = "normal";
 
