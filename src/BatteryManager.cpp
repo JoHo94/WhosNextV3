@@ -41,8 +41,6 @@ bool BatteryManager::checkBattery() {
 
     if (voltagePercent < 5) {
         Serial.println("Battery empty!");
-        mainLed.setBrightness(20);
-        mainLed.colorWipe(mainLed.Color(255, 255, 255), 10, 1); // Red
         esp_deep_sleep_start();
         return true;
     }

@@ -22,35 +22,19 @@
 #include "PlayOrderManager.h"
 #include "BatteryManager.h"
 
-OneButton btnSec1 = OneButton(
-  BUTTON_SEC_1,  // Input pin for the button
-  true,        // Button is active LOW
-  true         // Enable internal pull-up resistor
-);
-
-OneButton btnSec2 = OneButton(
-  Button_SEC_2,  // Input pin for the button
-  true,        // Button is active LOW
-  true         // Enable internal pull-up resistor
-);
-
-OneButton btnMain = OneButton(
-  BUTTON_MAIN,  // Input pin for the button
-  true,        // Button is active LOW
-  true         // Enable internal pull-up resistor
-);
+//Pin, activeLow, pullupActive
+OneButton btnSec1 = OneButton( BUTTON_SEC_1, true, true);
+OneButton btnSec2 = OneButton( Button_SEC_2, true, true );
+OneButton btnMain = OneButton( BUTTON_MAIN, true, true );
 
 LEDManager mainLed(PIXEL_COUNT, PIXEL_PIN);
 LEDManager statusLed(1, STATUS_PIN);
 
 BluetoothManager bluetoothManager;
-SDManager sdManager(SD_CS); // Initialize SDManager
+SDManager sdManager(SD_CS);
 Audio audio;
 PlayOrderManager* playOrderManager = nullptr;
 BatteryManager batteryManager(VOLTAGE_PIN, PIXEL_COUNT);
-
-int playOrder[20]; // Saves the current random playOrder
-int currentSong = 101;
 
 int volume = 21;
 int settingsMenu = 0; // 0 = no settings, 1 = Lautstärke, 2 = Spieleranzahl
@@ -80,7 +64,7 @@ static void handleSec1Click() {
         volume = 5; // Ensure it doesn't go below 0
     }
     applyNewVolume();
-    audio.connecttoFS(SD,"/Settings/Leiser.mp3");
+    playSong("/Settings/Leiser.mp3");
   }
 }
 
@@ -94,7 +78,7 @@ static void handleSec2Click() {
       volume = 21; // Ensure it doesn't exceed 21
     }
     applyNewVolume();
-    audio.connecttoFS(SD,"/Settings/Lauter.mp3");
+    playSong("/Settings/Lauter.mp3");
   }
 }
 
@@ -103,7 +87,7 @@ static void handleMainButtonLongClick() {
   Serial.println("Main Longpress");
   if(settingsMenu == 0){
     settingsMenu = 1;
-    audio.connecttoFS(SD,"/Settings/Lautstärke.mp3");
+    playSong("/Settings/Lautstärke.mp3");
     applyNewVolume();
     return;
   }
@@ -117,25 +101,24 @@ static void handleMainButtonLongClick() {
 // Handler function for a single click:
 static void handleMainButtonClick() {
   Serial.println("MainButton Clicked!!");
-        playSong(playOrderManager->getCurrentSong());
-        playOrderManager->nextSong();
+  playSong(playOrderManager->getCurrentSong());
+  playOrderManager->nextSong();
 
-
-      if(++mode > 3) mode = 0; // Advance to next mode, wrap around after #8
-      switch(mode) {           // Start the new animation...
-        case 0:
-          mainLed.colorWipe(mainLed.Color(  0,   165,   255), 10);    // Orange
-          break;
-        case 1:
-          mainLed.colorWipe(mainLed.Color(  0, 255,   0), 10);    // Green
-          break;
-        case 2:
-          mainLed.colorWipe(mainLed.Color(255,   0,   0), 10);    // Red
-          break;
-        case 3:
-          mainLed.colorWipe(mainLed.Color(  0,   0, 255), 10);    // Blue
-          break;
-      }
+  if(++mode > 3) mode = 0; // Advance to next mode, wrap around after #8
+  switch(mode) {           // Start the new animation...
+    case 0:
+      mainLed.colorWipe(mainLed.Color(  0,   165,   255), 10);    // Orange
+      break;
+    case 1:
+      mainLed.colorWipe(mainLed.Color(  0, 255,   0), 10);    // Green
+      break;
+    case 2:
+      mainLed.colorWipe(mainLed.Color(255,   0,   0), 10);    // Red
+      break;
+    case 3:
+      mainLed.colorWipe(mainLed.Color(  0,   0, 255), 10);    // Blue
+      break;
+  }
 }
 
 void onBluetoothConnection(bool connected) {
@@ -230,6 +213,8 @@ void loop()
   //Serial.println(convertToPixelCount(voltagePercent));
   //bluetoothManager.update(voltage);
   if (batteryManager.checkBattery()) {
+      mainLed.setBrightness(20);
+      mainLed.colorWipe(mainLed.Color(255, 255, 255), 10, 1); // Red
       return; // Break the loop if the battery is low
   }
   audio.loop();
