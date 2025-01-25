@@ -40,7 +40,9 @@ BatteryManager batteryManager(VOLTAGE_PIN, PIXEL_COUNT);
 
 int volume = 21;
 int settingsMenu = 0; // 0 = no settings, 1 = Lautstärke, 2 = Spieleranzahl
-int mode = 0;
+int currentPlayer = 0;
+bool configChanged = false;
+Config newConfig;
 
 void playSong(const String& filename) {
     Serial.print("Playing: ");
@@ -49,13 +51,20 @@ void playSong(const String& filename) {
 }
 
 void applyConfig(const Config& config) {
-  Serial.print("Config changed to: ");
-  Serial.print(config.toString());
-  if (!config.playerColors.empty()) {
-      String playerColor1 = config.playerColors[0];
-      mainLed.setColorFromString(playerColor1);
-  }
-  volume = config.volume;
+    Serial.print("Config changed to: ");
+    Serial.println(config.toString());
+
+    newConfig = config;
+    configChanged = true;
+}
+
+void applyConfigInLoop() {
+    if (!newConfig.playerColors.empty()) {
+        String playerColor1 = newConfig.playerColors[0];
+        mainLed.setColorFromString(playerColor1);
+    }
+    volume = newConfig.volume;
+    audio.setVolume(volume);
 }
 
 void applyNewVolume(){
@@ -110,28 +119,23 @@ static void handleMainButtonLongClick() {
   }
 } 
 
+void setColorForNextPlayer() {
+    currentPlayer++;
+    if (currentPlayer >= newConfig.playerColors.size()) {
+        currentPlayer = 0;
+    }
+    String playerColor = newConfig.playerColors[currentPlayer];
+    mainLed.setColorFromString(playerColor);
+}
+
 // Handler function for a single click:
 static void handleMainButtonClick() {
   Serial.println("MainButton Clicked!!");
   playSong(playOrderManager->getCurrentSong());
   playOrderManager->nextSong();
-
-  if(++mode > 3) mode = 0; // Advance to next mode, wrap around after #8
-  switch(mode) {           // Start the new animation...
-    case 0:
-      mainLed.colorWipe(mainLed.Color(  0,   165,   255), 10);    // Orange
-      break;
-    case 1:
-      mainLed.colorWipe(mainLed.Color(  0, 255,   0), 10);    // Green
-      break;
-    case 2:
-      mainLed.colorWipe(mainLed.Color(255,   0,   0), 10);    // Red
-      break;
-    case 3:
-      mainLed.colorWipe(mainLed.Color(  0,   0, 255), 10);    // Blue
-      break;
-  }
+  setColorForNextPlayer();
 }
+
 
 void onBluetoothConnection(bool connected) {
   if (connected) {
@@ -155,6 +159,7 @@ void setup() {
   bluetoothManager.setConfigReceivedCallback(configReceived); // Register the callback
   
   configManager.setConfigCallback(applyConfig);
+  configManager.initConfig();
 
   pinMode(VOLTAGE_PIN, INPUT);
 
@@ -206,6 +211,12 @@ void loop()
       mainLed.colorWipe(mainLed.Color(255, 255, 255), 10, 1); // Red
       return; // Break the loop if the battery is low
   }
+
+  if (configChanged) {
+      applyConfigInLoop();
+      configChanged = false;
+  }
+
   audio.loop();
   btnSec1.tick();
   btnSec2.tick();

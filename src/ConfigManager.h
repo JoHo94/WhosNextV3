@@ -16,6 +16,7 @@ public:
     void saveConfig(const String& rawJson);
     Config getCurrentConfig() const;
     void setConfigCallback(ConfigCallback callback);
+    void initConfig();
 
 private:
     DynamicJsonDocument doc;
@@ -23,7 +24,6 @@ private:
     SDManager& sdManager;
     ConfigCallback configCallback;
 
-    void readConfig();
 };
 
 #endif // CONFIGMANAGER_H

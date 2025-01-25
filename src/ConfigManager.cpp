@@ -1,10 +1,7 @@
 #include "ConfigManager.h"
 #include <Adafruit_NeoPixel.h>
 
-ConfigManager::ConfigManager(SDManager& sdManager) : doc(1024), sdManager(sdManager) {
-    readConfig();
-}
-
+ConfigManager::ConfigManager(SDManager& sdManager) : doc(1024), sdManager(sdManager) { }
 void ConfigManager::saveConfig(const String& rawJson) {
     Serial.print("Received config: ");
     Serial.println(rawJson);
@@ -13,7 +10,6 @@ void ConfigManager::saveConfig(const String& rawJson) {
     String jsonString;
     serializeJson(doc, jsonString);
     sdManager.writeFile("/config.txt", jsonString.c_str());
-
     currentConfig.playerColors.clear();
     for (JsonVariant v : doc["playerOrder"].as<JsonArray>()) {
         currentConfig.playerColors.push_back(v.as<String>());
@@ -27,7 +23,7 @@ void ConfigManager::saveConfig(const String& rawJson) {
     }
 }
 
-void ConfigManager::readConfig() {
+void ConfigManager::initConfig() {
     String jsonString = sdManager.readFile("/config.txt");
     if (!jsonString.isEmpty()) {
         deserializeJson(doc, jsonString);

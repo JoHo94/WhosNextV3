@@ -5,10 +5,10 @@
 #include <Arduino.h>
 
 struct Config {
-    std::vector<String> playerColors;
-    int brightness;
-    int volume;
-    String energyMode;
+    std::vector<String> playerColors = {"#FF0000", "#00FF00", "#0000FF", "#FFFF00"};
+    int brightness = 50;
+    int volume = 21;
+    String energyMode = "normal";
 
     String toString() const {
         String result = "Config: ";
