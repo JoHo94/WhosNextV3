@@ -38,8 +38,6 @@ Audio audio;
 PlayOrderManager* playOrderManager = nullptr;
 BatteryManager batteryManager(VOLTAGE_PIN, PIXEL_COUNT);
 
-int volume = 21;
-int settingsMenu = 0; // 0 = no settings, 1 = Lautstärke, 2 = Spieleranzahl
 int currentPlayer = 0;
 
 bool configChanged = false;
@@ -65,62 +63,48 @@ void applyConfigInLoop() {
     }else{
         mainLed.clear();
     }
-    volume = newConfig.volume;
-    audio.setVolume(volume);
+    audio.setVolume(newConfig.volume);
     mainLed.setBrightness(newConfig.brightness);
 }
 
-void applyNewVolume(){
-    audio.setVolume(volume);
-    int ledCount = volume - 5;
-    mainLed.colorSet(mainLed.Color(255, 255, 255), ledCount, newConfig.energyMode);
+void applyNewVolume(int newVolume){
+    audio.setVolume(newVolume);
     Serial.print("Changed volume to: ");
-    Serial.println(volume);
+    Serial.println(newVolume);
+    newConfig.volume = newVolume;
+    configManager.saveConfig(newConfig.toJson());
+    bluetoothManager.sendJson(newConfig.toJson());
 }
 
 // Handler function for a single click:
 static void handleSec1Click() {
   Serial.println("Left Button Clicked!");
-
-  if (settingsMenu == 1){
-    if (volume - 2 >= 5) { //Never smaller than 5
-        volume -= 2;
-    } else {
-        volume = 5; // Ensure it doesn't go below 0
-    }
-    applyNewVolume();
-    playSong("/Settings/Leiser.mp3");
+  int volume = newConfig.volume;
+  if (volume - 2 >= 4) { //Never smaller than 5
+      volume -= 2;
+  } else {
+      volume = 4; // Ensure it doesn't go below 0
   }
+  applyNewVolume(volume);
+  playSong("/Settings/Leiser.mp3");
 }
 
 // Handler function for a single click:
 static void handleSec2Click() {
   Serial.println("Right Button Clicked!");
-  if (settingsMenu == 1){
-    if (volume + 2 <= 21) { //Not greater than 21
-      volume += 2;
-    } else {
-      volume = 21; // Ensure it doesn't exceed 21
-    }
-    applyNewVolume();
-    playSong("/Settings/Lauter.mp3");
+  int volume = newConfig.volume;
+  if (volume + 2 <= 21) { //Not greater than 21
+    volume += 2;
+  } else {
+    volume = 21; // Ensure it doesn't exceed 21
   }
+  applyNewVolume(volume);
+  playSong("/Settings/Lauter.mp3");
 }
 
 // Handler function for a single click:
 static void handleMainButtonLongClick() {
   Serial.println("Main Longpress");
-  if(settingsMenu == 0){
-    settingsMenu = 1;
-    playSong("/Settings/Lautstärke.mp3");
-    applyNewVolume();
-    return;
-  }
-  if (settingsMenu == 1){
-    settingsMenu = 0;
-    mainLed.rainbow(0);
-    return;
-  }
 } 
 
 void setColorForNextPlayer() {
@@ -185,7 +169,7 @@ void setup() {
   SD.begin(SD_CS);
 
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-  audio.setVolume(volume); // 0...21
+  audio.setVolume(newConfig.volume); // 0...21
 
   btnSec1.attachClick(handleSec1Click);
   btnSec2.attachClick(handleSec2Click);
