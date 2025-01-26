@@ -45,8 +45,26 @@ Config newConfig;
 
 bool freshConnected = false;
 
+unsigned long advertisingStartTime = 0;
+const unsigned long advertisingDuration = 30000; // 30 seconds
+
+void startAdvertising() {
+    Serial.println("Starting Bluetooth advertising...");
+    bluetoothManager.startAdvertising();
+    advertisingStartTime = millis();
+    statusLed.setPixelColor(0, statusLed.Color(0,0,255));
+}
+
+void stopAdvertising() {
+    if (!bluetoothManager.isDeviceConnected()) {
+        Serial.println("Stopping Bluetooth advertising...");
+        bluetoothManager.stopAdvertising();
+        statusLed.clear();
+    }
+}
+
 void playSong(const String& filename) { 
-    audio.connecttoFS(SD, filename.c_str());
+        audio.connecttoFS(SD, filename.c_str());
 } 
 
 void applyConfig(const Config& config) {
@@ -105,6 +123,7 @@ static void handleSec2Click() {
 // Handler function for a single click:
 static void handleMainButtonLongClick() {
   Serial.println("Main Longpress");
+  startAdvertising();
 } 
 
 void setColorForNextPlayer() {
@@ -133,6 +152,7 @@ void onBluetoothConnection(bool connected) {
   } else {
     Serial.println("Device disconnected!");
     statusLed.setPixelColor(0, statusLed.Color(0,0,255));
+    startAdvertising(); // Restart advertising when the device disconnects
   }
 }
 
@@ -183,6 +203,8 @@ void setup() {
   for (int i = 0; i < fileNames.size(); i++) {
     Serial.println(fileNames[i]);
   }
+
+  startAdvertising(); // Start advertising on boot
 }
 
 void sendConfig() {
@@ -214,6 +236,10 @@ void loop()
   if (freshConnected) {
       sendConfig();
       freshConnected = false;
+  }
+  // Stop advertising after 1 minute if no device is connected
+  if (!bluetoothManager.isDeviceConnected() && millis() - advertisingStartTime >= advertisingDuration) {
+      stopAdvertising();
   }
 
   audio.loop();

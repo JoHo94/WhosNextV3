@@ -33,7 +33,6 @@ private:
     }
     void onDisconnect(NimBLEServer *pServer, NimBLEConnInfo& connInfo, int reason) override {
       Serial.println("Client disconnected - start advertising");
-      NimBLEDevice::startAdvertising();
       parent.deviceConnected = false; 
       if (parent.connectionCallback) {
         parent.connectionCallback(false);
@@ -72,6 +71,18 @@ public:
     configReceivedCallback = callback;
   }
 
+  bool isDeviceConnected() {
+    return deviceConnected;
+  }
+
+  void stopAdvertising() {
+    NimBLEDevice::stopAdvertising();
+  }
+
+  void startAdvertising() {
+    NimBLEDevice::startAdvertising();
+  }
+
   void init() {
     Serial.begin(115200);
     Serial.printf("Starting NimBLE Server\n");
@@ -88,7 +99,7 @@ public:
     pAdvertising->setName("ESP32");
     pAdvertising->addServiceUUID(pService->getUUID());
     pAdvertising->enableScanResponse(true);
-    pAdvertising->start();
+    //pAdvertising->start();
 
     Serial.printf("Advertising Started\n");
   }
