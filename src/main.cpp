@@ -61,7 +61,9 @@ void applyConfig(const Config& config) {
 
 void applyConfigInLoop() {
     if (!newConfig.playerColors.empty()) {
-      mainLed.setColorsEvenly(newConfig.playerColors);
+       mainLed.setColorsEvenly(newConfig.playerColors, newConfig.energyMode);
+    }else{
+        mainLed.clear();
     }
     volume = newConfig.volume;
     audio.setVolume(volume);
@@ -71,7 +73,7 @@ void applyConfigInLoop() {
 void applyNewVolume(){
     audio.setVolume(volume);
     int ledCount = volume - 5;
-    mainLed.colorSet(mainLed.Color(255, 255, 255), ledCount);
+    mainLed.colorSet(mainLed.Color(255, 255, 255), ledCount, newConfig.energyMode);
     Serial.print("Changed volume to: ");
     Serial.println(volume);
 }
@@ -129,7 +131,7 @@ void setColorForNextPlayer() {
         currentPlayer = 0;
     }
     String playerColor = newConfig.playerColors[currentPlayer];
-    mainLed.setColorFromString(playerColor);
+    mainLed.setColorFromString(playerColor, newConfig.energyMode);
 }
 
 // Handler function for a single click:

@@ -19,7 +19,7 @@ public:
     void initConfig();
 
 private:
-    DynamicJsonDocument doc;
+    JsonDocument doc;
     Config currentConfig;
     SDManager& sdManager;
     ConfigCallback configCallback;

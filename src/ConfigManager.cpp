@@ -1,7 +1,7 @@
 #include "ConfigManager.h"
 #include <Adafruit_NeoPixel.h>
 
-ConfigManager::ConfigManager(SDManager& sdManager) : doc(1024), sdManager(sdManager) { }
+ConfigManager::ConfigManager(SDManager& sdManager) : doc(), sdManager(sdManager) { }
 void ConfigManager::saveConfig(const String& rawJson) {
     Serial.print("Received config: ");
     Serial.println(rawJson);
