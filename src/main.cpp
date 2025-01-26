@@ -82,8 +82,6 @@ void applyNewVolume(){
 static void handleSec1Click() {
   Serial.println("Left Button Clicked!");
 
-  bluetoothManager.sendJson(newConfig.toJson());
-
   if (settingsMenu == 1){
     if (volume - 2 >= 5) { //Never smaller than 5
         volume -= 2;
