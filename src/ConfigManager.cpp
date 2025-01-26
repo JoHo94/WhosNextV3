@@ -6,18 +6,10 @@ void ConfigManager::saveConfig(const String& rawJson) {
     Serial.print("Received config: ");
     Serial.println(rawJson);
 
-    deserializeJson(doc, rawJson);
-    String jsonString;
-    serializeJson(doc, jsonString);
-    sdManager.writeFile("/config.txt", jsonString.c_str());
-    currentConfig.playerColors.clear();
-    for (JsonVariant v : doc["playerOrder"].as<JsonArray>()) {
-        currentConfig.playerColors.push_back(v.as<String>());
-    }
-    currentConfig.brightness = doc["brightness"];
-    currentConfig.volume = doc["volume"];
-    currentConfig.energyMode = doc["energyMode"].as<String>();
-
+    Config newConfig = Config().fromJson(rawJson);
+    String validatesJson = newConfig.toJson();
+    sdManager.writeFile("/config.txt", validatesJson.c_str());
+    currentConfig = newConfig;
     if (configCallback) {
         configCallback(currentConfig);
     }
@@ -26,15 +18,8 @@ void ConfigManager::saveConfig(const String& rawJson) {
 void ConfigManager::initConfig() {
     String jsonString = sdManager.readFile("/config.txt");
     if (!jsonString.isEmpty()) {
-        deserializeJson(doc, jsonString);
-        currentConfig.playerColors.clear();
-        for (JsonVariant v : doc["playerOrder"].as<JsonArray>()) {
-            currentConfig.playerColors.push_back(v.as<String>());
-        }
-        currentConfig.brightness = doc["brightness"];
-        currentConfig.volume = doc["volume"];
-        currentConfig.energyMode = doc["energyMode"].as<String>();
-
+        Config newConfig = Config().fromJson(jsonString);
+        currentConfig = newConfig;
         if (configCallback) {
             configCallback(currentConfig);
         }

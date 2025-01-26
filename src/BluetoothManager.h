@@ -1,19 +1,21 @@
-#ifndef BLUETOOTH_MANAGER_H
-#define BLUETOOTH_MANAGER_H
+#ifndef BLUETOOTHMANAGER_H
+#define BLUETOOTHMANAGER_H
 
 #include <NimBLEDevice.h>
 #include <Adafruit_NeoPixel.h>
 #include <string>
+#include <Arduino.h>
 
 #define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 #define JSON_CHARACTERISTIC_UUID "19B10002-E8F2-537E-4F6C-D104768A1215"
+#define DATA_CHARACTERISTIC_UUID "19B10003-E8F2-537E-4F6C-D104768A1216"
 
 class BluetoothManager {
 private:
   NimBLEServer *pServer = nullptr;
-  NimBLECharacteristic *pCharacteristic = nullptr;
   NimBLECharacteristic *jsonCharacteristic = nullptr;
+  NimBLECharacteristic *dataCharacteristic = nullptr;
   bool deviceConnected = false;
   bool oldDeviceConnected = false;
   void (*connectionCallback)(bool connected) = nullptr;
@@ -78,8 +80,8 @@ public:
     pServer = NimBLEDevice::createServer();
     pServer->setCallbacks(new BluetoothCallbacks(*this));
     NimBLEService*        pService = pServer->createService(SERVICE_UUID);
-    NimBLECharacteristic* pCharacteristic = pService->createCharacteristic( CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
-    NimBLECharacteristic* jsonCharacteristic = pService->createCharacteristic( JSON_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY );
+    jsonCharacteristic = pService->createCharacteristic( JSON_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY );
+    dataCharacteristic = pService->createCharacteristic( DATA_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY );
     jsonCharacteristic->setCallbacks(new JsonCallback(*this));
     pService->start();
     NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
@@ -91,6 +93,23 @@ public:
     Serial.printf("Advertising Started\n");
   }
 
+  void sendJson(const String& json) {
+
+    if (!dataCharacteristic || !deviceConnected) {
+      Serial.println("No device connected, cannot send JSON.");
+      return;
+    }
+    Serial.println("Sending JSON");
+    Serial.println(json.c_str());
+    int length = json.length();
+    int chunkSize = 200;
+    for (int i = 0; i < length; i += chunkSize) {
+      String chunk = json.substring(i, i + chunkSize);
+      dataCharacteristic->setValue(chunk.c_str());
+      dataCharacteristic->notify();
+      delay(10); // Small delay to ensure the chunk is sent
+    }
+  }
 };
 
-#endif // BLUETOOTH_MANAGER_H
+#endif // BLUETOOTHMANAGER_H

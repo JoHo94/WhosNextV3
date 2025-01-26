@@ -41,8 +41,11 @@ BatteryManager batteryManager(VOLTAGE_PIN, PIXEL_COUNT);
 int volume = 21;
 int settingsMenu = 0; // 0 = no settings, 1 = Lautstärke, 2 = Spieleranzahl
 int currentPlayer = 0;
+
 bool configChanged = false;
 Config newConfig;
+
+bool freshConnected = false;
 
 void playSong(const String& filename) { 
     audio.connecttoFS(SD, filename.c_str());
@@ -76,6 +79,9 @@ void applyNewVolume(){
 // Handler function for a single click:
 static void handleSec1Click() {
   Serial.println("Left Button Clicked!");
+
+  bluetoothManager.sendJson(newConfig.toJson());
+
   if (settingsMenu == 1){
     if (volume - 2 >= 5) { //Never smaller than 5
         volume -= 2;
@@ -139,6 +145,7 @@ void onBluetoothConnection(bool connected) {
   if (connected) {
     Serial.println("Device connected!");
     statusLed.setPixelColor(0, statusLed.Color(0,255,0));
+    freshConnected = true;
   } else {
     Serial.println("Device disconnected!");
     statusLed.setPixelColor(0, statusLed.Color(0,0,255));
@@ -194,6 +201,10 @@ void setup() {
   }
 }
 
+void sendConfig() {
+  delay(1000);
+  bluetoothManager.sendJson(newConfig.toJson());
+}
 
 void loop()
 {
@@ -215,6 +226,10 @@ void loop()
   if (configChanged) {
       applyConfigInLoop();
       configChanged = false;
+  }  
+  if (freshConnected) {
+      sendConfig();
+      freshConnected = false;
   }
 
   audio.loop();
