@@ -44,9 +44,7 @@ int currentPlayer = 0;
 bool configChanged = false;
 Config newConfig;
 
-void playSong(const String& filename) {
-    Serial.print("Playing: ");
-    Serial.println(filename);
+void playSong(const String& filename) { 
     audio.connecttoFS(SD, filename.c_str());
 } 
 
@@ -56,7 +54,6 @@ void applyConfig(const Config& config) {
 
     newConfig = config;
     configChanged = true;
-    mainLed.setBrightness(newConfig.brightness);
 }
 
 void applyConfigInLoop() {
@@ -65,7 +62,8 @@ void applyConfigInLoop() {
     }
     volume = newConfig.volume;
     audio.setVolume(volume);
-    }
+    mainLed.setBrightness(newConfig.brightness);
+}
 
 void applyNewVolume(){
     audio.setVolume(volume);

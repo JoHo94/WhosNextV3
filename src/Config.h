@@ -21,6 +21,6 @@ struct Config {
         result += "Energy Mode: " + energyMode + "\n";
         return result;
     }
-};
+}; 
 
 #endif // CONFIG_H
