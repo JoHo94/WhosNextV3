@@ -78,10 +78,17 @@ void applyConfig(const Config& config) {
 
 void applyConfigInLoop() {
     // if volume changed, apply it
+    // Print brightness and volume
+    Serial.print("Brightness: ");
+    Serial.println(currentConfig.brightness);
+    Serial.println(newConfigToBeApplied.brightness);
+  
     if (currentConfig.volume != newConfigToBeApplied.volume) {
         audio.setVolume(newConfigToBeApplied.volume);
     }
     if (currentConfig.brightness != newConfigToBeApplied.brightness) {
+      Serial.print("Changed brightness to: ");
+      Serial.println(newConfigToBeApplied.brightness);
         mainLed.setBrightness(newConfigToBeApplied.brightness);
     }
     if(currentConfig.playerColors != newConfigToBeApplied.playerColors){
@@ -98,9 +105,10 @@ void applyNewVolume(int newVolume){
     //audio.setVolume(newVolume);
     Serial.print("Changed volume to: ");
     Serial.println(newVolume);
-    currentConfig.volume = newVolume;
-    configManager.saveConfig(currentConfig.toJson());
-    bluetoothManager.sendJson(currentConfig.toJson());
+    Config newConfig = currentConfig;
+    newConfig.volume = newVolume;
+    configManager.saveConfig(newConfig.toJson());
+    bluetoothManager.sendJson(newConfig.toJson());
 }
 
 // Handler function for a single click:
@@ -142,17 +150,21 @@ static void handleSec1LongClickStart() {
   const int brightnessLevels[] = {32, 64, 128, 192, 255};
   const int numLevels = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
 
+  int newBrightness = currentConfig.brightness;
+
   for (int i = 0; i < numLevels; ++i) {
-    if (currentConfig.brightness < brightnessLevels[i]) {
-      currentConfig.brightness = brightnessLevels[i];
+    if (newBrightness < brightnessLevels[i]) {
+      newBrightness = brightnessLevels[i];
       break;
-    } else if (currentConfig.brightness == brightnessLevels[numLevels - 1]) {
-      currentConfig.brightness = brightnessLevels[0];
+    } else if (newBrightness == brightnessLevels[numLevels - 1]) {
+      newBrightness = brightnessLevels[0];
       break;
     }
   }
-  configManager.saveConfig(currentConfig.toJson());
-  bluetoothManager.sendJson(currentConfig.toJson());
+  Config newConfig = currentConfig;
+  newConfig.brightness = newBrightness;
+  configManager.saveConfig(newConfig.toJson());
+  bluetoothManager.sendJson(newConfig.toJson());
 
   //playSong("/Settings/Lauter.mp3"); Battery sound here!
 }
