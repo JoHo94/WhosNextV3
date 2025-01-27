@@ -41,7 +41,8 @@ BatteryManager batteryManager(VOLTAGE_PIN, PIXEL_COUNT);
 int currentPlayer = 0;
 
 bool configChanged = false;
-Config newConfig;
+Config newConfigToBeApplied;
+Config currentConfig;
 
 bool freshConnected = false;
 
@@ -71,33 +72,41 @@ void applyConfig(const Config& config) {
     Serial.print("Config changed to: ");
     Serial.println(config.toString());
 
-    newConfig = config;
+    newConfigToBeApplied = config;
     configChanged = true;
 }
 
 void applyConfigInLoop() {
-    if (!newConfig.playerColors.empty()) {
-       mainLed.setColorsEvenly(newConfig.playerColors, newConfig.energyMode);
-    }else{
-        mainLed.clear();
+    // if volume changed, apply it
+    if (currentConfig.volume != newConfigToBeApplied.volume) {
+        audio.setVolume(newConfigToBeApplied.volume);
     }
-    audio.setVolume(newConfig.volume);
-    mainLed.setBrightness(newConfig.brightness);
+    if (currentConfig.brightness != newConfigToBeApplied.brightness) {
+        mainLed.setBrightness(newConfigToBeApplied.brightness);
+    }
+    if(currentConfig.playerColors != newConfigToBeApplied.playerColors){
+      if (!newConfigToBeApplied.playerColors.empty()) {
+        mainLed.setColorsEvenly(newConfigToBeApplied.playerColors, newConfigToBeApplied.energyMode);
+      }else{
+          mainLed.clear();
+      }
+    }
+    currentConfig = newConfigToBeApplied;
 }
 
 void applyNewVolume(int newVolume){
-    audio.setVolume(newVolume);
+    //audio.setVolume(newVolume);
     Serial.print("Changed volume to: ");
     Serial.println(newVolume);
-    newConfig.volume = newVolume;
-    configManager.saveConfig(newConfig.toJson());
-    bluetoothManager.sendJson(newConfig.toJson());
+    currentConfig.volume = newVolume;
+    configManager.saveConfig(currentConfig.toJson());
+    bluetoothManager.sendJson(currentConfig.toJson());
 }
 
 // Handler function for a single click:
 static void handleSec1Click() {
   Serial.println("Left Button Clicked!");
-  int volume = newConfig.volume;
+  int volume = currentConfig.volume;
   if (volume - 2 >= 4) { //Never smaller than 5
       volume -= 2;
   } else {
@@ -110,7 +119,7 @@ static void handleSec1Click() {
 // Handler function for a single click:
 static void handleSec2Click() {
   Serial.println("Right Button Clicked!");
-  int volume = newConfig.volume;
+  int volume = currentConfig.volume;
   if (volume + 2 <= 21) { //Not greater than 21
     volume += 2;
   } else {
@@ -134,17 +143,16 @@ static void handleSec1LongClickStart() {
   const int numLevels = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
 
   for (int i = 0; i < numLevels; ++i) {
-    if (newConfig.brightness < brightnessLevels[i]) {
-      newConfig.brightness = brightnessLevels[i];
+    if (currentConfig.brightness < brightnessLevels[i]) {
+      currentConfig.brightness = brightnessLevels[i];
       break;
-    } else if (newConfig.brightness == brightnessLevels[numLevels - 1]) {
-      newConfig.brightness = brightnessLevels[0];
+    } else if (currentConfig.brightness == brightnessLevels[numLevels - 1]) {
+      currentConfig.brightness = brightnessLevels[0];
       break;
     }
   }
-  configManager.saveConfig(newConfig.toJson());
-  bluetoothManager.sendJson(newConfig.toJson());
-  mainLed.setBrightness(newConfig.brightness);
+  configManager.saveConfig(currentConfig.toJson());
+  bluetoothManager.sendJson(currentConfig.toJson());
 
   //playSong("/Settings/Lauter.mp3"); Battery sound here!
 }
@@ -153,8 +161,8 @@ static void handleSec1LongClickStart() {
 static void handleSec2LongClickStop() {
   Serial.println("Right Button Long Clicked End!");
 
-  String playerColor = newConfig.playerColors[currentPlayer];
-  mainLed.setColorFromString(playerColor, newConfig.energyMode);
+  String playerColor = currentConfig.playerColors[currentPlayer];
+  mainLed.setColorFromString(playerColor, currentConfig.energyMode);
   //playSong("/Settings/Lauter.mp3"); Battery sound here!
 }
 
@@ -166,11 +174,11 @@ static void handleMainButtonLongClick() {
 
 void setColorForNextPlayer() {
     currentPlayer++;
-    if (currentPlayer >= newConfig.playerColors.size()) {
+    if (currentPlayer >= currentConfig.playerColors.size()) {
         currentPlayer = 0;
     }
-    String playerColor = newConfig.playerColors[currentPlayer];
-    mainLed.setColorFromString(playerColor, newConfig.energyMode);
+    String playerColor = currentConfig.playerColors[currentPlayer];
+    mainLed.setColorFromString(playerColor, currentConfig.energyMode);
 }
 
 // Handler function for a single click:
@@ -217,7 +225,7 @@ void setup() {
   SD.begin(SD_CS);
 
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-  audio.setVolume(newConfig.volume); // 0...21
+  audio.setVolume(currentConfig.volume); // 0...21
 
   btnSec1.attachClick(handleSec1Click);
   btnSec2.attachClick(handleSec2Click);
@@ -238,7 +246,7 @@ void setup() {
 
 void sendConfig() {
   delay(1000);
-  bluetoothManager.sendJson(newConfig.toJson());
+  bluetoothManager.sendJson(currentConfig.toJson());
 }
 
 void loop()
