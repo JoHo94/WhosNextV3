@@ -1,6 +1,7 @@
 #include "BatteryManager.h"
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
+#include <math.h> // For the pow function
 
 extern Adafruit_NeoPixel mainLed;
 
@@ -16,10 +17,13 @@ float BatteryManager::getVoltage() {
 }
 
 float BatteryManager::convertToPercentage(float voltage) {
-    float minVoltage = 3.3;
-    float maxVoltage = 4.20;
-    float voltageRange = maxVoltage - minVoltage;
-    return ((voltage - minVoltage) / voltageRange) * 100;
+    const double constant = 123.0;
+    const double divisor = 3.7;
+    const double exponent1 = 80.0;
+    const double exponent2 = 0.165;
+
+    float result = constant - (constant / pow(1 + pow(voltage / divisor, exponent1), exponent2));
+    return result;
 }
 
 int BatteryManager::convertToPixelCount(float percent) {
@@ -49,6 +53,8 @@ bool BatteryManager::checkBattery() {
 
 int BatteryManager::getVoltageInPixels() {
     float voltage = getVoltage();
+    Serial.printf("Voltage: %.2f\n", voltage);
     float voltagePercent = convertToPercentage(voltage);
+    Serial.printf("Voltage percent: %.2f\n", voltagePercent);
     return convertToPixelCount(voltagePercent);
 }

@@ -45,7 +45,7 @@ Config newConfig;
 
 bool freshConnected = false;
 
-unsigned long advertisingStartTime = 0;
+unsigned long advertisingStartTime = -1;
 const unsigned long advertisingDuration = 30000; // 30 seconds
 
 void startAdvertising() {
@@ -120,6 +120,44 @@ static void handleSec2Click() {
   playSong("/Settings/Lauter.mp3");
 }
 
+static void handleSec2LongClickStart() {
+  Serial.println("Right Button Long Clicked Start!");
+  mainLed.colorSet(mainLed.Color(0,255,0), batteryManager.getVoltageInPixels(), "full");
+  //playSong("/Settings/Lauter.mp3"); Battery sound here!
+}
+
+// Handler function for a single click:
+static void handleSec1LongClickStart() {
+  Serial.println("Left Button Long Clicked Start!");
+
+  const int brightnessLevels[] = {32, 64, 128, 192, 255};
+  const int numLevels = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
+
+  for (int i = 0; i < numLevels; ++i) {
+    if (newConfig.brightness < brightnessLevels[i]) {
+      newConfig.brightness = brightnessLevels[i];
+      break;
+    } else if (newConfig.brightness == brightnessLevels[numLevels - 1]) {
+      newConfig.brightness = brightnessLevels[0];
+      break;
+    }
+  }
+  configManager.saveConfig(newConfig.toJson());
+  bluetoothManager.sendJson(newConfig.toJson());
+  mainLed.setBrightness(newConfig.brightness);
+
+  //playSong("/Settings/Lauter.mp3"); Battery sound here!
+}
+
+// Handler function for a single click:
+static void handleSec2LongClickStop() {
+  Serial.println("Right Button Long Clicked End!");
+
+  String playerColor = newConfig.playerColors[currentPlayer];
+  mainLed.setColorFromString(playerColor, newConfig.energyMode);
+  //playSong("/Settings/Lauter.mp3"); Battery sound here!
+}
+
 // Handler function for a single click:
 static void handleMainButtonLongClick() {
   Serial.println("Main Longpress");
@@ -172,16 +210,6 @@ void setup() {
 
   pinMode(VOLTAGE_PIN, INPUT);
 
-  // strip.begin();
-  // strip.show();
-  // mainLed.setBrightness(50);
-  // colorWipe(strip.Color(  0, 255,   0), 10, voltagePixelCount);    // Green
-
-  // statusLed.begin();
-  // statusLed.setBrightness(50);
-  // colorWipe(statusLed.Color(  255, 0,   0), 10, voltagePixelCount);    // Green
-  // statusLed.show();
-
   statusLed.colorSet(statusLed.Color(0, 0, 255));
 
   SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
@@ -195,11 +223,12 @@ void setup() {
   btnSec2.attachClick(handleSec2Click);
   btnMain.attachClick(handleMainButtonClick);
   btnMain.attachLongPressStart(handleMainButtonLongClick);
+  btnSec2.attachLongPressStart(handleSec2LongClickStart);
+  btnSec2.attachLongPressStop(handleSec2LongClickStop);
+  btnSec1.attachLongPressStart(handleSec1LongClickStart);
 
-  // read files to vector
   std::vector<String> fileNames = sdManager.readFileNames();
   playOrderManager = new PlayOrderManager(fileNames);
-  // print file names
   for (int i = 0; i < fileNames.size(); i++) {
     Serial.println(fileNames[i]);
   }
@@ -238,8 +267,9 @@ void loop()
       freshConnected = false;
   }
   // Stop advertising after 1 minute if no device is connected
-  if (!bluetoothManager.isDeviceConnected() && millis() - advertisingStartTime >= advertisingDuration) {
+  if (!bluetoothManager.isDeviceConnected() && millis() - advertisingStartTime >= advertisingDuration && advertisingStartTime != -1) {
       stopAdvertising();
+      advertisingStartTime = -1;
   }
 
   audio.loop();
