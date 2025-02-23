@@ -22,6 +22,7 @@
 #include "PlayOrderManager.h"
 #include "BatteryManager.h"
 #include "ConfigManager.h"
+#include "WebServerHandler.h"
 
 //Pin, activeLow, pullupActive
 OneButton btnSec1 = OneButton( BUTTON_SEC_1, true, true);
@@ -37,6 +38,8 @@ ConfigManager configManager(sdManager);
 Audio audio;
 PlayOrderManager* playOrderManager = nullptr;
 BatteryManager batteryManager(VOLTAGE_PIN, PIXEL_COUNT);
+
+WebServerHandler webServerHandler(80);
 
 int currentPlayer = 0;
 
@@ -253,6 +256,7 @@ void setup() {
     Serial.println(fileNames[i]);
   }
 
+  //webServerHandler.begin();
   startAdvertising(); // Start advertising on boot
 }
 
