@@ -7,7 +7,7 @@ class WebServerHandler {
 public:
     WebServerHandler(uint16_t port);
     void begin();
-    void enable();
+    void enable(const String& ssid, const String& password);
     void disable();
 
 private:

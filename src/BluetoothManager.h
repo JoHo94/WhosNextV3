@@ -10,16 +10,19 @@
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 #define JSON_CHARACTERISTIC_UUID "19B10002-E8F2-537E-4F6C-D104768A1215"
 #define DATA_CHARACTERISTIC_UUID "19B10003-E8F2-537E-4F6C-D104768A1216"
+#define WIFI_CHARACTERISTIC_UUID "19B10004-E8F2-537E-4F6C-D104768A1217"
 
 class BluetoothManager {
 private:
   NimBLEServer *pServer = nullptr;
   NimBLECharacteristic *jsonCharacteristic = nullptr;
   NimBLECharacteristic *dataCharacteristic = nullptr;
+  NimBLECharacteristic *wifiCharacteristic = nullptr;
   bool deviceConnected = false;
   bool oldDeviceConnected = false;
   void (*connectionCallback)(bool connected) = nullptr;
   void (*configReceivedCallback)(String rawJson) = nullptr;
+  void (*wifiCharacteristicCallback)(String rawData) = nullptr;
 
   class BluetoothCallbacks : public NimBLEServerCallbacks {
     BluetoothManager &parent;
@@ -60,6 +63,26 @@ private:
     }
   };
 
+  class WifiCharacteristicCallback : public NimBLECharacteristicCallbacks {
+    BluetoothManager &parent;
+  public:
+    WifiCharacteristicCallback(BluetoothManager &parentRef) : parent(parentRef) {}
+    String v = "";
+    void onWrite(NimBLECharacteristic *pCharacteristic, NimBLEConnInfo& connInfo) override {
+      String value = pCharacteristic->getValue();
+      v += value;
+      if (value.endsWith("X")){
+        // Drop last character
+        v = v.substring(0, v.length()-1);
+        if(parent.wifiCharacteristicCallback){
+          parent.wifiCharacteristicCallback(v);
+        }
+        Serial.println(v);
+        v = "";
+      }
+    }
+  };
+
 public:
   BluetoothManager() {}
 
@@ -69,6 +92,10 @@ public:
   
   void setConfigReceivedCallback(void (*callback)(String rawJson)) {
     configReceivedCallback = callback;
+  }
+
+  void setWifiCharacteristicCallback(void (*callback)(String rawData)) {
+    wifiCharacteristicCallback = callback;
   }
 
   bool isDeviceConnected() {
@@ -93,7 +120,9 @@ public:
     NimBLEService*        pService = pServer->createService(SERVICE_UUID);
     jsonCharacteristic = pService->createCharacteristic( JSON_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY );
     dataCharacteristic = pService->createCharacteristic( DATA_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY );
+    wifiCharacteristic = pService->createCharacteristic( WIFI_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY );
     jsonCharacteristic->setCallbacks(new JsonCallback(*this));
+    wifiCharacteristic->setCallbacks(new WifiCharacteristicCallback(*this));
     pService->start();
     NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
     pAdvertising->setName("ESP32");

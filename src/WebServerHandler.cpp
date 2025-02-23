@@ -5,10 +5,6 @@
 WebServerHandler::WebServerHandler(uint16_t port) : server(port), isEnabled(false) {}
 
 void WebServerHandler::begin() {
-    const char* ssid = "ESP32_AP";
-    const char* password = "12345678";
-    WiFi.softAP(ssid, password);
-
     server.on("/list", HTTP_GET, [this](AsyncWebServerRequest *request) {
         listFiles(request);
     });
@@ -28,15 +24,12 @@ void WebServerHandler::begin() {
     });
 
     server.begin();
-    isEnabled = true;
 }
 
-void WebServerHandler::enable() {
+void WebServerHandler::enable(const String& ssid, const String& password) {
     if (!isEnabled) {
-        const char* ssid = "ESP32_AP";
-        const char* password = "12345678";
-        WiFi.softAP(ssid, password);
-        server.begin();
+        WiFi.softAP(ssid.c_str(), password.c_str());
+        begin();
         isEnabled = true;
     }
 }

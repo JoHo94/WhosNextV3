@@ -221,12 +221,41 @@ void configReceived(String rawJson) {
   configManager.saveConfig(rawJson);
 }
 
+void wifiCharacteristicReceived(String rawData) {
+  Serial.print("WiFi characteristic data received: ");
+  Serial.println(rawData);
+
+  StaticJsonDocument<256> doc;
+  DeserializationError error = deserializeJson(doc, rawData);
+
+  if (error) {
+    Serial.print("Failed to parse JSON: ");
+    Serial.println(error.c_str());
+    return;
+  }
+
+  String action = doc["action"].as<String>();
+  if (action == "disable") {
+    Serial.println("Disabling WiFi...");
+    webServerHandler.disable();
+  } else if (action == "enable") {
+    String ssid = doc["ssid"].as<String>();
+    String pw = doc["pw"].as<String>();
+    Serial.print("Enabling WiFi with SSID: ");
+    Serial.println(ssid);
+    webServerHandler.enable(ssid, pw);
+  } else {
+    Serial.println("Unknown action");
+  }
+}
+
 void setup() {
     
   Serial.begin(115200);
   bluetoothManager.init();
   bluetoothManager.setConnectionCallback(onBluetoothConnection); // Register the callback
   bluetoothManager.setConfigReceivedCallback(configReceived); // Register the callback
+  bluetoothManager.setWifiCharacteristicCallback(wifiCharacteristicReceived); // Register the WiFi callback
   
   configManager.setConfigCallback(applyConfig);
   configManager.initConfig();
